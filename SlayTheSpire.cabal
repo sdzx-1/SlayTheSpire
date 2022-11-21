@@ -61,6 +61,7 @@ library
     exposed-modules:  MyLib
                     , Type
                     , Utils
+                    , Input
 
     -- Modules included in this library but not exported.
     -- other-modules:

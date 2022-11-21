@@ -13,16 +13,10 @@ import Control.Carrier.Error.Either
 import Control.Carrier.Random.Gen
 import Control.Carrier.State.Strict
 import Control.Effect.Labelled
-import Control.Monad (forM, forM_, forever, replicateM_, when)
-import Data.Map (Map)
+import Control.Monad (forM, forM_, forever)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import qualified Data.Set as Set
-import Data.Vector hiding (forM, forM_, length, modify, zip, (++))
-import Data.Vector.Mutable hiding (forM_, length, modify, read, readMaybe)
 import System.Random (mkStdGen)
-import Text.Printf (printf)
-import Text.Read (readMaybe)
 import Type
 import Utils
 
@@ -51,7 +45,6 @@ runF =
     . runState initEnemys
     . runRandom (mkStdGen 10)
     . runError @GameError
-    . runError @InputControl
     $ f
 
 f
@@ -61,7 +54,6 @@ f
      , Has (State Enemys) sig m
      , Has (State GameState) sig m
      , Has (Error GameError) sig m
-     , Has (Error InputControl) sig m
      , HasLabelledLift IO sig m
      )
   => m ()

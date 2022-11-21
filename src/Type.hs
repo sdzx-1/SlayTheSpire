@@ -62,8 +62,3 @@ data GameError
   = PlayerDeath
   | CleanEnemys
   deriving (Show)
-
-data InputControl
-  = InputFinish Behavior
-  | ReturnToUpperLevel Int
-  deriving (Show)

@@ -1,6 +1,8 @@
 module Main where
 
+import Control.Monad (void)
+import qualified MyLib as M
 
 main :: IO ()
 main = do
-  putStrLn "Hello, Haskell!"
+  void M.runF

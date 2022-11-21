@@ -2,14 +2,5 @@ packages: .
 
 source-repository-package
   type: git
-  location: https://github.com/EMQ-YangM/io-sim.git
-  tag: 46259b1c3d305d83fe88aac236bac31e150e5cad
-  subdir:
-    io-classes
-    io-sim
-    strict-stm
-
-source-repository-package
-  type: git
   location: https://github.com/EMQ-YangM/fused-effects.git
   tag: 198d09a5549f2773f1ae9d7a8a99b1fa741275dc
