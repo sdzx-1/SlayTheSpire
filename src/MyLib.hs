@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
@@ -14,35 +15,31 @@ import Control.Carrier.Random.Gen
 import Control.Carrier.State.Strict
 import Control.Effect.Labelled
 import Control.Monad (forM, forM_, forever)
+import Data.Dynamic (fromDynamic)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import Input
 import System.Random (mkStdGen)
 import Type
 import Utils
-
-evalBehavior
-  :: ( Has (State Player) sig m
-     , Has (State Enemys) sig m
-     , Has (Error GameError) sig m
-     , HasLabelledLift IO sig m
-     )
-  => Behavior
-  -> m ()
-evalBehavior b = do
-  lift $ print b
-  case b of
-    Attack t v -> case t of
-      P -> damagePlayer v
-      E index -> damageEnemy index v
-    Defend t v -> case t of
-      P -> defendPlayer v
-      E index -> defendEnemy index v
 
 runF =
   runLabelledLift
     . runState initGameState
     . runState initPlayer
     . runState initEnemys
+    . runState @TriggerMap
+      ( Map.fromList
+          [
+            ( WhenTheEnemyDies
+            ,
+              [ \dny -> case fromDynamic dny of
+                  Nothing -> Nothing
+                  Just (RemainingAttack i) -> Just $ RandomSelectEnemyAttack i
+              ]
+            )
+          ]
+      )
     . runRandom (mkStdGen 10)
     . runError @GameError
     $ f
@@ -55,6 +52,7 @@ f
      , Has (State GameState) sig m
      , Has (Error GameError) sig m
      , HasLabelledLift IO sig m
+     , Has (State TriggerMap) sig m
      )
   => m ()
 f = forever $ do

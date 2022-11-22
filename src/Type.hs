@@ -9,17 +9,24 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Type where
 
+import Control.Carrier.Lift
+import Control.Carrier.Reader
+import Control.Carrier.State.Strict
+import Data.Dynamic (Dynamic, Typeable)
 import Data.Map (Map)
+import qualified Data.Map as Map
 import Text.Printf (printf)
 
 data Player = Player
   { health :: Int
   , shield :: Int
   , damage :: Int
+  -- , buf :: []
   }
 instance Show Player where
   show Player{health, shield, damage} =
@@ -55,6 +62,8 @@ data Target = P | E Index
 
 data Behavior
   = Attack Target Int
+  | SelectEnemyAttack Int
+  | RandomSelectEnemyAttack Int
   | Defend Target Int
   deriving (Show)
 
@@ -62,3 +71,14 @@ data GameError
   = PlayerDeath
   | CleanEnemys
   deriving (Show)
+
+type TriggerMap = Map Trigger [Dynamic -> Maybe Behavior]
+
+data Trigger
+  = ThePlayerTakesDamage
+  | WhenTheEnemyDies
+  | WhenThePlayerSelectDefends
+  | WhenThePlayerSelectAttacks
+  deriving (Eq, Show, Ord)
+
+newtype RemainingAttack = RemainingAttack Int deriving (Eq, Ord, Show, Typeable)

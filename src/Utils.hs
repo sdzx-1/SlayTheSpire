@@ -16,7 +16,8 @@ import Control.Carrier.Error.Either
 import Control.Carrier.Random.Gen
 import Control.Carrier.State.Strict
 import Control.Effect.Labelled
-import Control.Monad (forever, void, when)
+import Control.Monad (forM_, forever, void, when)
+import Data.Dynamic
 import Data.Kind (Type)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -75,8 +76,11 @@ damagePlayer i = do
 
 damageEnemy
   :: ( Has (State Enemys) sig m
+     , Has (State Player) sig m
      , Has (Error GameError) sig m
      , HasLabelledLift IO sig m
+     , Has (State TriggerMap) sig m
+     , Has Random sig m
      )
   => Index
   -> Int
@@ -95,6 +99,7 @@ damageEnemy index i = do
               modify @Enemys (Map.delete index)
               enemys' <- get @Enemys
               when (Map.null enemys') (throwError CleanEnemys)
+              trigger WhenTheEnemyDies (RemainingAttack (-newHealth))
             else modify (Map.insert index (e{health = newHealth, shield = 0} :: Enemy))
         else modify (Map.insert index (e{shield = shield - i} :: Enemy))
 
@@ -155,7 +160,7 @@ playerSelectBehave = do
       1 -> do
         enemys <- Map.toList <$> get @Enemys
         let ts = Avi "SELECT Enemy" $ zipWith (curry (\(a, (b, c)) -> (a, b, show c))) [1 ..] enemys
-            baseDamage = Avi "SELECT BASEDAMAGE" [(a, b :: Int, show b) | a <- [1 .. 9], let b = a * 10]
+            baseDamage = Avi "SELECT Basedamage" [(a, b :: Int, show b) | a <- [1 .. 9], let b = a * 10]
         res' <- getInput (ts :+ baseDamage :+ ANil)
         case res' of
           Nothing -> playerSelectBehave
@@ -163,7 +168,7 @@ playerSelectBehave = do
             Player{damage} <- get
             pure (Just $ Attack (E target) (baseD + damage))
       2 -> do
-        let baseShield = Avi "SELECT SHIELD" [(a, b :: Int, show b) | a <- [1 .. 9], let b = a * 10]
+        let baseShield = Avi "SELECT Shield" [(a, b :: Int, show b) | a <- [1 .. 9], let b = a * 10]
         res' <- getInput (baseShield :+ ANil)
         case res' of
           Nothing -> playerSelectBehave
@@ -178,3 +183,55 @@ playerSelectBehave = do
         lift $ putStrLn (unlines $ map show (Map.toList enemys))
         playerSelectBehave
       _ -> pure Nothing
+
+trigger
+  :: ( Has (State Player) sig m
+     , Has (State Enemys) sig m
+     , Has (Error GameError) sig m
+     , Has Random sig m
+     , Has (State TriggerMap) sig m
+     , HasLabelledLift IO sig m
+     , Typeable a
+     )
+  => Trigger
+  -> a
+  -> m ()
+trigger t a = do
+  tm <- get @TriggerMap
+  case Map.lookup t tm of
+    Nothing -> pure ()
+    Just xs -> do
+      let dny = toDyn a
+      forM_ xs $ \x -> forM_ (x dny) evalBehavior
+
+evalBehavior
+  :: ( Has (State Player) sig m
+     , Has (State Enemys) sig m
+     , Has (Error GameError) sig m
+     , Has Random sig m
+     , HasLabelledLift IO sig m
+     , Has (State TriggerMap) sig m
+     )
+  => Behavior
+  -> m ()
+evalBehavior b = do
+  lift $ print b
+  case b of
+    Attack t v -> case t of
+      P -> damagePlayer v
+      E index -> damageEnemy index v
+    SelectEnemyAttack i -> do
+      enemys <- Map.toList <$> get @Enemys
+      let ts = Avi "SELECT Enemy" $ zipWith (curry (\(a, (b', c)) -> (a, b', show c))) [1 ..] enemys
+      res' <- getInput (ts :+ ANil)
+      case res' of
+        Nothing -> pure ()
+        Just (target :- RNil) -> do
+          damageEnemy target i
+    RandomSelectEnemyAttack i -> do
+      enemys <- Map.keys <$> get @Enemys
+      co <- chooseList enemys
+      damageEnemy co i
+    Defend t v -> case t of
+      P -> defendPlayer v
+      E index -> defendEnemy index v
