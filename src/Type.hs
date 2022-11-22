@@ -65,6 +65,7 @@ data Behavior
   | SelectEnemyAttack Int
   | RandomSelectEnemyAttack Int
   | Defend Target Int
+  | IncPlayerHealth Int
   deriving (Show)
 
 data GameError
@@ -79,6 +80,7 @@ data Trigger
   | WhenTheEnemyDies
   | WhenThePlayerSelectDefends
   | WhenThePlayerSelectAttacks
+  | WhenNewTurnStart
   deriving (Eq, Show, Ord)
 
 newtype RemainingAttack = RemainingAttack Int deriving (Eq, Ord, Show, Typeable)

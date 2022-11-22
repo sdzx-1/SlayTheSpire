@@ -38,6 +38,14 @@ runF =
                   Just (RemainingAttack i) -> Just $ RandomSelectEnemyAttack i
               ]
             )
+          ,
+            ( WhenNewTurnStart
+            ,
+              [ \dny -> case fromDynamic dny of
+                  Nothing -> Nothing
+                  Just () -> Just $ IncPlayerHealth 10
+              ]
+            )
           ]
       )
     . runRandom (mkStdGen 10)
@@ -57,6 +65,7 @@ f
   => m ()
 f = forever $ do
   updateGameState
+  trigger WhenNewTurnStart ()
   renderGame
   be <- playerSelectBehave
   forM_ be evalBehavior

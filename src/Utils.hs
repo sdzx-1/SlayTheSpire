@@ -208,9 +208,9 @@ evalBehavior
   :: ( Has (State Player) sig m
      , Has (State Enemys) sig m
      , Has (Error GameError) sig m
-     , Has Random sig m
      , HasLabelledLift IO sig m
      , Has (State TriggerMap) sig m
+     , Has Random sig m
      )
   => Behavior
   -> m ()
@@ -235,3 +235,6 @@ evalBehavior b = do
     Defend t v -> case t of
       P -> defendPlayer v
       E index -> defendEnemy index v
+    IncPlayerHealth i -> do
+      p@Player{health} <- get
+      put @Player (p{health = health + i})
