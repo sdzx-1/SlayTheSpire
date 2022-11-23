@@ -3,6 +3,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -18,6 +19,7 @@ import Control.Monad (forM, forM_, forever)
 import Data.Dynamic (fromDynamic)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import Effect
 import Input
 import System.Random (mkStdGen)
 import Type
@@ -25,29 +27,7 @@ import Utils
 
 runF =
   runLabelledLift
-    . runState initGameState
-    . runState initPlayer
-    . runState initEnemys
-    . runState @TriggerMap
-      ( Map.fromList
-          [
-            ( WhenTheEnemyDies
-            ,
-              [ \dny -> case fromDynamic dny of
-                  Nothing -> Nothing
-                  Just (RemainingAttack i) -> Just $ RandomSelectEnemyAttack i
-              ]
-            )
-          ,
-            ( WhenNewTurnStart
-            ,
-              [ \dny -> case fromDynamic dny of
-                  Nothing -> Nothing
-                  Just () -> Just $ IncPlayerHealth 10
-              ]
-            )
-          ]
-      )
+    . runState initGame
     . runRandom (mkStdGen 10)
     . runError @GameError
     $ f
@@ -55,42 +35,39 @@ runF =
 f
   :: forall sig m
    . ( Has Random sig m
-     , Has (State Player) sig m
-     , Has (State Enemys) sig m
-     , Has (State GameState) sig m
+     , Has (State Game) sig m
      , Has (Error GameError) sig m
      , HasLabelledLift IO sig m
-     , Has (State TriggerMap) sig m
      )
   => m ()
 f = forever $ do
-  updateGameState
+  #round %= (+ 1)
   trigger WhenNewTurnStart ()
   renderGame
   be <- playerSelectBehave
   forM_ be evalBehavior
-  enemys <- get @Enemys
+  enemys <- use #enemys
   forM_ (Map.toList enemys) $ \(_, Enemy{behave}) -> do
     evalBehavior behave
   updateEnemysBehavior
 
 enemyBehavior
-  :: (Has Random sig m, Has (State Enemys) sig m)
+  :: (Has Random sig m, Has (State Game) sig m)
   => Index
   -> m Behavior
 enemyBehavior index = do
-  enemys <- get @Enemys
+  enemys <- use #enemys
   let Enemy{damage} = fromJust $ Map.lookup index enemys
   shield <- uniformR (1, 10)
   chooseList
-    [ Attack P damage
-    , Defend (E index) shield
+    [ AttackPlayer damage
+    , IncEnemyShield index shield
     ]
 
-updateEnemysBehavior :: (Has Random sig m, Has (State Enemys) sig m) => m ()
+updateEnemysBehavior :: (Has Random sig m, Has (State Game) sig m) => m ()
 updateEnemysBehavior = do
-  enemys <- get @Enemys
+  enemys <- use #enemys
   ls <- forM (Map.toList enemys) $ \(index, e) -> do
     newBehave <- enemyBehavior index
     pure (index, e{behave = newBehave})
-  put (Map.fromList ls)
+  #enemys .= Map.fromList ls
