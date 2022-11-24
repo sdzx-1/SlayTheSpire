@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RankNTypes #-}
@@ -32,6 +33,7 @@ initGame =
     { round = 0
     , player = initPlayer
     , enemys = initEnemys
+    , varMap = Map.fromList [(1, 0)]
     , triggerMap =
         Map.fromList
           [
@@ -48,8 +50,13 @@ initGame =
             ( PlayerDies
             ,
               [ \_ -> Just $ Action $ do
-                  lift $ putStrLn "player dies, set health to 100"
-                  #player % #health .= 100
+                  modifyVar 1 (+ 1)
+                  i <- getVar 1
+                  if i >= 2
+                    then pure ()
+                    else do
+                      lift $ putStrLn $ "player dies " ++ show i ++ ", set health to 100"
+                      #player % #health .= 100
               ]
             )
           ,
@@ -79,6 +86,41 @@ chooseList ls = do
   let len = length ls
   i <- uniformR (0, len - 1)
   pure $ ls !! i
+
+getVar
+  :: ( Has (State Game) sig m
+     , Has (Error GameError) sig m
+     )
+  => Int
+  -> m Int
+getVar i = do
+  use (#varMap % at i) >>= \case
+    Nothing -> throwError (VarError $ show i ++ " undefined")
+    Just v -> pure v
+
+setVar
+  :: ( Has (State Game) sig m
+     , Has (Error GameError) sig m
+     )
+  => Int
+  -> Int
+  -> m ()
+setVar i v = do
+  use (#varMap % at i) >>= \case
+    Nothing -> throwError (VarError $ show i ++ " undefined")
+    Just _ -> #varMap % at i .= Just v
+
+modifyVar
+  :: ( Has (State Game) sig m
+     , Has (Error GameError) sig m
+     )
+  => Int
+  -> (Int -> Int)
+  -> m ()
+modifyVar i f = do
+  use (#varMap % at i) >>= \case
+    Nothing -> throwError (VarError $ show i ++ " undefined")
+    Just v -> #varMap % at i .= Just (f v)
 
 getEnemyTarget
   :: ( Has Random sig m

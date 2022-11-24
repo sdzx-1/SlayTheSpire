@@ -77,6 +77,7 @@ type Index = Int
 data GameError
   = PlayerDeath
   | CleanEnemys
+  | VarError String
   deriving (Show)
 
 type TriggerMap = Map Trigger [Dynamic -> Maybe Action]
@@ -104,11 +105,14 @@ newtype Action
 instance Show Action where
   show _ = "Action"
 
+type VarMap = Map Int Int
+
 data Game = Game
   { round :: Int
   , player :: Player
   , enemys :: Map Index Enemy
   , triggerMap :: TriggerMap
+  , varMap :: Map Int Int
   }
   deriving (Generic)
 
