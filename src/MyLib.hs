@@ -42,26 +42,27 @@ f
   => m ()
 f = forever $ do
   #round %= (+ 1)
-  trigger WhenNewTurnStart ()
+  trigger NewTurnStart ()
   renderGame
   be <- playerSelectBehave
-  forM_ be evalBehavior
+  case be of
+    Nothing -> pure ()
+    Just (Action f') -> f'
   enemys <- use #enemys
-  forM_ (Map.toList enemys) $ \(_, Enemy{behave}) -> do
-    evalBehavior behave
+  forM_ (Map.toList enemys) $ \(_, Enemy{behave = Action b}) -> b
   updateEnemysBehavior
 
 enemyBehavior
   :: (Has Random sig m, Has (State Game) sig m)
   => Index
-  -> m Behavior
+  -> m Action
 enemyBehavior index = do
   enemys <- use #enemys
   let Enemy{damage} = fromJust $ Map.lookup index enemys
   shield <- uniformR (1, 10)
   chooseList
-    [ AttackPlayer damage
-    , IncEnemyShield index shield
+    [ Action $ damagePlayer damage
+    , Action $ incEnemyShield index shield
     ]
 
 updateEnemysBehavior :: (Has Random sig m, Has (State Game) sig m) => m ()

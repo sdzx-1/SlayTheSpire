@@ -18,6 +18,11 @@
 
 module Type where
 
+import Control.Algebra (Has)
+import Control.Effect.Error (Error)
+import Control.Effect.Labelled (HasLabelledLift)
+import Control.Effect.Random (Random)
+import Control.Effect.State (State)
 import Data.Dynamic (Dynamic, Typeable)
 import Data.Map (Map)
 import GHC.Generics
@@ -48,7 +53,7 @@ data Enemy = Enemy
   { health :: Int
   , shield :: Int
   , damage :: Int
-  , behave :: Behavior
+  , behave :: Action
   }
   deriving (Generic)
 
@@ -69,30 +74,34 @@ instance Show Enemy where
 
 type Index = Int
 
-data Behavior
-  = AttackEnemy Index Int
-  | AttackPlayer Int
-  | IncPlayerShield Int
-  | IncEnemyShield Index Int
-  | SelectEnemyAttack Int
-  | RandomSelectEnemyAttack Int
-  | IncPlayerHealth Int
-  deriving (Show)
-
 data GameError
   = PlayerDeath
   | CleanEnemys
   deriving (Show)
 
-type TriggerMap = Map Trigger [Dynamic -> Maybe Behavior]
+type TriggerMap = Map Trigger [Dynamic -> Maybe Action]
 
 data Trigger
   = ThePlayerTakesDamage
-  | WhenTheEnemyDies
-  | WhenThePlayerSelectDefends
-  | WhenThePlayerSelectAttacks
-  | WhenNewTurnStart
+  | TheEnemyDies
+  | ThePlayerSelectDefends
+  | ThePlayerSelectAttacks
+  | NewTurnStart
   deriving (Eq, Show, Ord)
+
+newtype Action
+  = Action
+      ( forall m sig
+         . ( Has Random sig m
+           , Has (Error GameError) sig m
+           , HasLabelledLift IO sig m
+           , Has (State Game) sig m
+           )
+        => m ()
+      )
+
+instance Show Action where
+  show _ = "Action"
 
 data Game = Game
   { round :: Int
