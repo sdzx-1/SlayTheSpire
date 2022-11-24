@@ -82,7 +82,8 @@ data GameError
 type TriggerMap = Map Trigger [Dynamic -> Maybe Action]
 
 data Trigger
-  = ThePlayerTakesDamage
+  = PlayerTakesDamage
+  | PlayerDies
   | TheEnemyDies
   | ThePlayerSelectDefends
   | ThePlayerSelectAttacks

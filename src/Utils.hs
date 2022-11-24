@@ -37,11 +37,19 @@ initGame =
           [
             ( TheEnemyDies
             ,
-              [ \_ -> Just $ Action $ uniformR (10, 30) >>= damagePlayer
+              [ \_ -> Just $ Action $ uniformR (10, 300) >>= damagePlayer
               , \dny -> case fromDynamic dny of
                   Nothing -> Nothing
                   Just (RemainingAttack i) ->
                     Just $ Action $ selectEnemyAttack i
+              ]
+            )
+          ,
+            ( PlayerDies
+            ,
+              [ \_ -> Just $ Action $ do
+                  lift $ putStrLn "player dies, set health to 100"
+                  #player % #health .= 100
               ]
             )
           ,
@@ -83,6 +91,7 @@ damagePlayer
   :: ( Has (Error GameError) sig m
      , Has (State Game) sig m
      , HasLabelledLift IO sig m
+     , Has Random sig m
      )
   => Int
   -> m ()
@@ -93,7 +102,9 @@ damagePlayer i = do
     then do
       health <- use (#player % #health)
       let newHealth = health - (i - shield)
-      when (newHealth <= 0) $ throwError PlayerDeath
+      when (newHealth <= 0) $ trigger PlayerDies ()
+      newHealth' <- use $ #player % #health
+      when (newHealth' <= 0) $ throwError PlayerDeath
       #player % #shield .= 0
       #player % #health .= newHealth
     else #player % #shield .= (shield - i)
