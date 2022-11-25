@@ -63,6 +63,7 @@ library
                     , Utils
                     , Input
                     , Effect
+                    , T
 
     -- Modules included in this library but not exported.
     -- other-modules:

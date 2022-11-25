@@ -5,7 +5,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
@@ -14,7 +16,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE NoFieldSelectors #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 
 module Type where
 
@@ -24,7 +26,9 @@ import Control.Effect.Labelled (HasLabelledLift)
 import Control.Effect.Random (Random)
 import Control.Effect.State (State)
 import Data.Dynamic (Dynamic, Typeable)
+import Data.IntMap (IntMap)
 import Data.Map (Map)
+import GHC.Exts (Any, Int (I#), dataToTag#, tagToEnum#)
 import GHC.Generics
 import Optics (makeFieldLabels)
 import Text.Printf (printf)
@@ -44,7 +48,7 @@ instance Show Player where
       , damage
       } =
       printf
-        "player h: %d s: %d d: %d"
+        "🧓  💝: %d s: %d d: %d"
         health
         shield
         damage
@@ -66,7 +70,7 @@ instance Show Enemy where
       , behave
       } =
       printf
-        "enemy h: %d s: %d d: %d next_behave: %s"
+        "🦁 h: %d s: %d d: %d next_behave: %s"
         health
         shield
         damage
@@ -91,16 +95,16 @@ data Trigger
   | NewTurnStart
   deriving (Eq, Show, Ord)
 
-newtype Action
-  = Action
-      ( forall m sig
-         . ( Has Random sig m
-           , Has (Error GameError) sig m
-           , HasLabelledLift IO sig m
-           , Has (State Game) sig m
-           )
-        => m ()
-      )
+newtype Action = Action
+  { runAction
+      :: forall m sig
+       . ( Has Random sig m
+         , Has (Error GameError) sig m
+         , HasLabelledLift IO sig m
+         , Has (State Game) sig m
+         )
+      => m ()
+  }
 
 instance Show Action where
   show _ = "Action"

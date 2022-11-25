@@ -313,3 +313,23 @@ selectEnemyAttack i = do
   case res' of
     Nothing -> pure ()
     Just (target :- RNil) -> damageEnemy target i
+
+trigger'
+  :: ( Has (State Game) sig m
+     , Has (Error GameError) sig m
+     , HasLabelledLift IO sig m
+     , Has Random sig m
+     , Typeable a
+     )
+  => Trigger
+  -> a
+  -> m ()
+trigger' t a = do
+  tm <- use $ #triggerMap % at t
+  case tm of
+    Nothing -> pure ()
+    Just xs -> do
+      let dny = toDyn a
+      forM_ xs $ \x -> case x dny of
+        Nothing -> pure ()
+        Just (Action f) -> f
