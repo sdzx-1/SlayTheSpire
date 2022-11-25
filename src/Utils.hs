@@ -2,6 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -15,10 +16,11 @@ module Utils where
 import Control.Carrier.Error.Either
 import Control.Carrier.Random.Gen
 import Control.Carrier.State.Strict
+import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Labelled
 import Control.Monad (forM_, when)
 import Data.Data (Typeable)
-import Data.Dynamic (fromDynamic, toDyn)
+import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Effect
@@ -86,6 +88,41 @@ chooseList ls = do
   let len = length ls
   i <- uniformR (0, len - 1)
   pure $ ls !! i
+
+initAction
+  :: ( Has (State Game) sig m
+     , Has Fresh sig m
+     )
+  => m (Int, Trigger, Int, Dynamic -> Maybe Action)
+initAction = do
+  fi <- newVar
+  pure
+    ( 1
+    , PlayerDies
+    , 10
+    , \_ -> Just $ Action $ do
+        modifyVar fi (+ 1)
+        i <- getVar fi
+        if i >= 2
+          then pure ()
+          else do
+            lift $
+              putStrLn $
+                "player dies "
+                  ++ show i
+                  ++ ", set health to 100"
+            #player % #health .= 100
+    )
+
+newVar
+  :: ( Has (State Game) sig m
+     , Has Fresh sig m
+     )
+  => m Int
+newVar = do
+  i <- fresh
+  #varMap % at i .= Just 0
+  pure i
 
 getVar
   :: ( Has (State Game) sig m
