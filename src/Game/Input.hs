@@ -96,7 +96,7 @@ go
 go ANil _ = throwError Finish
 go ((Avi title' ts) :+ tss) levelIndex =
   forever . returnLevel levelIndex $ do
-    let st = "--> " ++ title'
+    let st = "➡️ " ++ title'
     lift $ putStrLn $ unlines $ st : map (\(a, _, c) -> show a ++ "-" ++ c) ts
     mbi <- readMaybe @Int <$> lift getLine
     case mbi of
