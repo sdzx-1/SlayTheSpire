@@ -60,15 +60,15 @@ instance (IX x, ToIXs xs) => ToIXs (x ': xs) where
   toIxs (a ::: b) = ixF (snd a) : toIxs b
 
 class InsertTriggerMap xs where
-  itmap :: BuffIndex -> HList xs -> TriggerMap -> TriggerMap
+  itmap :: Has (State TriggerMap) sig m => BuffIndex -> HList xs -> m ()
 
 instance InsertTriggerMap '[] where
-  itmap _ HNil am = am
+  itmap _ HNil = pure ()
 
 instance (IX x, InsertTriggerMap xs) => InsertTriggerMap (x ': xs) where
-  itmap buffIndex ((priority, triggerFun) ::: b) am =
-    itmap buffIndex b $
-      insertTrigger (TriggerInfo{buffIndex, priority, triggerFun}) am
+  itmap buffIndex ((priority, triggerFun) ::: b) = do
+    modify @TriggerMap (insertTrigger (TriggerInfo{buffIndex, priority, triggerFun}))
+    itmap buffIndex b
 
 data BuffInit = forall xs.
   (InsertTriggerMap xs, ToIXs xs) =>
@@ -97,8 +97,7 @@ initBuff :: All sig m => BuffName -> BuffInit -> m BuffIndex
 initBuff buffName BuffInit{buffInit} = do
   buffIndex <- BuffIndex <$> fresh
   (fun, varRefs) <- buffInit
-  tm <- get @TriggerMap
-  put $ itmap buffIndex fun tm
+  itmap buffIndex fun
   let buffRef = BuffRef{buffVarRef = varRefs, buffTriggerRef = toIxs fun}
       newBuffDesc = Buff{buffName, buffRef}
   modify @BuffMap (BuffMap . Map.insert buffIndex newBuffDesc . buffMap)
