@@ -91,7 +91,13 @@ data BuffRef = BuffRef
   }
   deriving (Show)
 
-cleanBuff :: All sig m => BuffIndex -> m ()
+cleanBuff
+  :: ( Has (State BuffMap) sig m
+     , Has (State VarMap) sig m
+     , Has (State TriggerMap) sig m
+     )
+  => BuffIndex
+  -> m ()
 cleanBuff buffIndex = do
   buffMap <- buffMap <$> get @BuffMap
   case Map.lookup buffIndex buffMap of

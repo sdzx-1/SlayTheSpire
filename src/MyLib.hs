@@ -50,80 +50,54 @@ runF =
       [ PBuff
           { buffName = BuffName "Converts enemy attacks to damage 30 times"
           , buffInit = BuffInit @'[PlayerTakesDamage] $ do
-              times <- definedVar 0
               pure
                 ( ( 0
-                  , \SPlayerTakesDamage{enemyAttack} -> Action $ do
-                      modifyVar times (+ 1)
-                      tv <- useVar times
-                      when (tv >= 30) $ do
-                        lift $ putStrLn "------- REMOVE BUFF SELF -------"
-                        buffIndex <- ask @BuffIndex
-                        cleanBuff buffIndex
-                        throwError BuffEarlyExist
+                  , \SPlayerTakesDamage{enemyAttack} -> Action $ withMaxTriggerTimes 30 $ do
                       lift $ putStrLn "Converts enemy attacks to damage, interrupt enemy attack"
                       modifying @_ @Player #damage (+ enemyAttack)
                       throwError InterruptAttack
                   )
                     ::: HNil
-                , [times]
+                , []
                 )
           }
       , PBuff
           { buffName = BuffName "The player can revive 10 times after death"
           , buffInit = BuffInit @'[PlayerDies] $ do
-              times <- definedVar 0
               pure
                 ( ( 0
-                  , \SPlayerDies -> Action $ do
-                      modifyVar times (+ 1)
-                      tv <- useVar times
-                      when (tv >= 10) $ do
-                        lift $ putStrLn "------- REMOVE BUFF SELF -------"
-                        buffIndex <- ask @BuffIndex
-                        cleanBuff buffIndex
-                        throwError BuffEarlyExist
+                  , \SPlayerDies -> Action $ withMaxTriggerTimes 10 $ do
                       lift $ putStrLn "player dies, revive, set health 100"
                       assign @Player #health 100
                   )
                     ::: HNil
-                , [times]
+                , []
                 )
           }
       , PBuff
           { buffName = BuffName "remain attack to select new enemy killed"
           , buffInit = BuffInit @'[EnemyDies, NewTurnStart] $ do
-              times <- definedVar 0
               turnV <- definedVar 0
               pure
                 ( ( 0
                   , \SEnemyDies{remainAttack} -> Action $ do
-                      modifyVar times (+ 1)
                       val <- useVar turnV
-                      tv <- useVar times
-                      when (tv > 5) $ do
-                        lift $ putStrLn "------- REMOVE BUFF SELF -------"
-                        buffIndex <- ask @BuffIndex
-                        cleanBuff buffIndex
-                        throwError BuffEarlyExist
                       lift $
                         putStrLn $
                           "buff: remainAttack "
                             ++ show remainAttack
                             ++ " + trun add "
                             ++ show val
-                            ++ ", times: "
-                            ++ show tv
                       randomSelectEnemyAttack (remainAttack + val)
                   )
                     ::: ( 0
                         , \SNewTurnStart -> Action $ do
-                            modifyVar turnV (+ 10)
+                            modifyVar turnV (+ 1)
                             val <- useVar turnV
                             lift $ putStrLn $ "new turn inc damage: " ++ show val
                         )
                     ::: HNil
-                , [times, turnV]
+                , [turnV]
                 )
           }
       ]

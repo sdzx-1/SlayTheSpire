@@ -15,16 +15,18 @@ module Game.Function where
 
 import Control.Algebra (Has)
 import Control.Effect.Error (Error, catchError, throwError)
-import Control.Effect.Labelled (lift)
+import Control.Effect.Labelled (HasLabelledLift, lift)
 import Control.Effect.Optics (assign, modifying, use, uses)
 import Control.Effect.Random (Random, uniformR)
-import Control.Effect.State (get)
+import Control.Effect.Reader (Reader, ask)
+import Control.Effect.State (State, get)
 import Control.Monad (when)
 import qualified Data.IntMap as IntMap
 import Game.Buff
 import Game.Input (AvailableList (ANil, (:+)), Avi (Avi), ResultList (RNil, (:-)), getInput)
 import Game.Trigger
 import Game.Type
+import Game.VarMap (VarMap (VarMap), VarRef (..), useVar)
 import Optics (At (..), (%?))
 import Optics.Optic ((%))
 
@@ -164,3 +166,22 @@ playerSelectBehave = do
         lift $ putStrLn (unlines $ map show (IntMap.toList enemys))
         playerSelectBehave
       _ -> pure Nothing
+
+withMaxTriggerTimes
+  :: ( Has (Error GameError) sig m
+     , Has (Reader BuffIndex) sig m
+     , Has (Reader VarRef) sig m
+     , All sig m
+     )
+  => Int
+  -> m ()
+  -> m ()
+withMaxTriggerTimes mi fun = do
+  timesVarRef <- ask @VarRef
+  times <- useVar timesVarRef
+  when (times > mi) $ do
+    lift $ putStrLn "------- REMOVE BUFF -------"
+    buffIndex <- ask @BuffIndex
+    cleanBuff buffIndex
+    throwError BuffEarlyExist
+  fun
