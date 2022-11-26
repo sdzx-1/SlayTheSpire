@@ -22,6 +22,7 @@ import Control.Effect.Reader (Reader, ask)
 import Control.Effect.State (State, get)
 import Control.Monad (when)
 import qualified Data.IntMap as IntMap
+import qualified Data.Map as Map
 import Game.Buff
 import Game.Input (AvailableList (ANil, (:+)), Avi (Avi), ResultList (RNil, (:-)), getInput)
 import Game.Trigger
@@ -134,6 +135,7 @@ playerSelectBehave = do
           , (2, 2, "🛡")
           , (3, 3, "player_info")
           , (4, 4, "enemys_info")
+          , (5, 5, "list buffs")
           ]
           :+ ANil
       )
@@ -164,6 +166,10 @@ playerSelectBehave = do
       4 -> do
         enemys <- use @Game #enemys
         lift $ putStrLn (unlines $ map show (IntMap.toList enemys))
+        playerSelectBehave
+      5 -> do
+        bm <- Map.toList . buffMap <$> get @BuffMap
+        lift $ putStrLn (unlines $ map show bm)
         playerSelectBehave
       _ -> pure Nothing
 

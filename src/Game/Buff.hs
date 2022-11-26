@@ -99,12 +99,13 @@ cleanBuff
   => BuffIndex
   -> m ()
 cleanBuff buffIndex = do
-  buffMap <- buffMap <$> get @BuffMap
-  case Map.lookup buffIndex buffMap of
+  buffMap' <- buffMap <$> get @BuffMap
+  case Map.lookup buffIndex buffMap' of
     Nothing -> pure ()
     Just Buff{buffRef = BuffRef{buffVarRef, buffTriggerRef}} -> do
       mapM_ deleteVar buffVarRef
       mapM_ (deleteTrigger buffIndex) buffTriggerRef
+      modify @BuffMap (BuffMap . Map.delete buffIndex . buffMap)
 
 initBuff :: All sig m => BuffName -> BuffInit -> m BuffIndex
 initBuff buffName BuffInit{buffInit} = do
