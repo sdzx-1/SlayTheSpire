@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
@@ -8,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 
 module MyLib where
 
@@ -15,60 +17,102 @@ import Control.Carrier.Error.Either
 import Control.Carrier.Random.Gen
 import Control.Carrier.State.Strict
 import Control.Effect.Labelled
-import Control.Monad (forM, forM_, forever)
+import Control.Monad (forM, forM_, forever, join)
 import Data.Dynamic (fromDynamic)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Effect
-import Input
 import System.Random (mkStdGen)
-import Type
-import Utils
+
+import Control.Carrier.Fresh.Strict (runFresh)
+import Control.Effect.Optics (modifying, use)
+import qualified Data.IntMap as IntMap
+import Game.Buff
+import Game.Function
+import Game.Input
+import Game.Trigger
+import Game.Type
+import Game.VarMap
+
+initEnemys =
+  IntMap.fromList
+    [ (i, Enemy 10 10 10)
+    | i <- [0 .. 10]
+    ]
 
 runF =
   runLabelledLift
-    . runState initGame
+    . runState (Player 100 0 1)
+    . runState (Game 0 initEnemys)
+    . runState (VarMap Map.empty)
+    . runState (BuffMap Map.empty)
+    . runState (TriggerMap IntMap.empty)
+    . runFresh 0
     . runRandom (mkStdGen 10)
     . runError @GameError
     $ f
+      [ PBuff
+          { buffName = BuffName "remain attack to select new enemy killed"
+          , buffInit = BuffInit @'[EnemyDies, NewTurnStart] $ do
+              times <- definedVar 0
+              turnV <- definedVar 0
+              pure
+                ( ( 0
+                  , \SEnemyDies{remainAttack} -> Action $ do
+                      modifyVar times (+ 1)
+                      val <- useVar turnV
+                      tv <- useVar times
+                      lift $
+                        putStrLn $
+                          "buff: remainAttack "
+                            ++ show remainAttack
+                            ++ " + trun add "
+                            ++ show val
+                            ++ ", times: "
+                            ++ show tv
+                      randomSelectEnemyAttack remainAttack
+                  )
+                    ::: ( 0
+                        , \SNewTurnStart -> Action $ do
+                            modifyVar turnV (+ 10)
+                            val <- useVar turnV
+                            lift $ putStrLn $ "new turn inc damage: " ++ show val
+                        )
+                    ::: HNil
+                , [times, turnV]
+                )
+          }
+      ]
 
 f
   :: forall sig m
-   . ( Has Random sig m
-     , Has (State Game) sig m
-     , Has (Error GameError) sig m
-     , HasLabelledLift IO sig m
-     )
-  => m ()
-f = forever $ do
-  #round %= (+ 1)
-  trigger NewTurnStart ()
-  renderGame
-  be <- playerSelectBehave
-  case be of
-    Nothing -> pure ()
-    Just (Action f') -> f'
-  enemys <- use #enemys
-  forM_ (Map.toList enemys) $ \(_, Enemy{behave = Action b}) -> b
-  updateEnemysBehavior
+   . All sig m
+  => [PBuff]
+  -> m ()
+f pbs = do
+  forM_ pbs $ \pb@PBuff{buffName, buffInit} -> do
+    lift $ putStrLn $ "init buff: " ++ show pb
+    initBuff buffName buffInit
+  forever $ do
+    modifying @_ @Game #round (+ 1)
+    trigger SNewTurnStart
+    renderGame
+    be <- playerSelectBehave
+    case be of
+      Nothing -> pure ()
+      Just f' -> f'
+    enemys <- use @Game #enemys
+    forM_ (IntMap.keys enemys) $ \index -> do
+      join $ enemyBehavior index
 
 enemyBehavior
-  :: (Has Random sig m, Has (State Game) sig m)
+  :: All sig m
   => Index
-  -> m Action
+  -> m (m ())
 enemyBehavior index = do
-  enemys <- use #enemys
-  let Enemy{damage} = fromJust $ Map.lookup index enemys
+  enemys <- use @Game #enemys
+  let Enemy{damage} = fromJust $ IntMap.lookup index enemys
   shield <- uniformR (1, 10)
   chooseList
-    [ Action $ damagePlayer damage
-    , Action $ incEnemyShield index shield
+    [ damagePlayer damage
+    , incEnemyShield index shield
     ]
-
-updateEnemysBehavior :: (Has Random sig m, Has (State Game) sig m) => m ()
-updateEnemysBehavior = do
-  enemys <- use #enemys
-  ls <- forM (Map.toList enemys) $ \(index, e) -> do
-    newBehave <- enemyBehavior index
-    pure (index, e{behave = newBehave})
-  #enemys .= Map.fromList ls

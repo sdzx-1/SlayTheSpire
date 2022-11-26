@@ -5,4 +5,5 @@ import qualified MyLib as M
 
 main :: IO ()
 main = do
+  print "nice"
   void M.runF

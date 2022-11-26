@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Input where
+module Game.Input where
 
 import Control.Carrier.Error.Either
 import Control.Carrier.State.Strict
@@ -22,8 +22,8 @@ import Control.Monad (forever)
 import Data.Dynamic
 import Data.Kind
 import qualified Data.Map as Map
+import Game.Type (Index)
 import Text.Read (readMaybe)
-import Type
 
 data Avi t = Avi
   { title :: String

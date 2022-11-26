@@ -58,12 +58,13 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  MyLib
-                    , Type
-                    , Utils
-                    , Input
-                    , Effect
-                    , T
+    exposed-modules:  Game.Buff
+                    , Game.Type
+                    , Game.VarMap
+                    , Game.Trigger
+                    , Game.Function
+                    , Game.Input
+                    , MyLib
 
     -- Modules included in this library but not exported.
     -- other-modules:
