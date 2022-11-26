@@ -22,7 +22,7 @@ import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Labelled (HasLabelledLift)
 import Control.Effect.Random (Random)
 import Control.Effect.Reader (Reader)
-import Control.Effect.State (State, get, modify, put)
+import Control.Effect.State (State, get, modify)
 import Control.Monad (forM_)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap

@@ -185,6 +185,7 @@ withMaxTriggerTimes
 withMaxTriggerTimes mi fun = do
   timesVarRef <- ask @VarRef
   times <- useVar timesVarRef
+  lift $ putStrLn $ "trigger times: " ++ show times
   when (times > mi) $ do
     lift $ putStrLn "------- REMOVE BUFF -------"
     buffIndex <- ask @BuffIndex
