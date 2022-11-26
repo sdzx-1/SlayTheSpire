@@ -2,13 +2,11 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 
 module MyLib where
@@ -17,8 +15,7 @@ import Control.Carrier.Error.Either
 import Control.Carrier.Random.Gen
 import Control.Carrier.State.Strict
 import Control.Effect.Labelled
-import Control.Monad (forM, forM_, forever, join)
-import Data.Dynamic (fromDynamic)
+import Control.Monad (forM_, forever, join)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import System.Random (mkStdGen)
@@ -28,7 +25,6 @@ import Control.Effect.Optics (modifying, use)
 import qualified Data.IntMap as IntMap
 import Game.Buff
 import Game.Function
-import Game.Input
 import Game.Trigger
 import Game.Type
 import Game.VarMap

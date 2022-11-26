@@ -4,10 +4,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoFieldSelectors #-}
@@ -15,11 +13,11 @@
 module Game.Function where
 
 import Control.Algebra (Has)
-import Control.Effect.Error (Error, throwError)
-import Control.Effect.Labelled (HasLabelledLift, lift)
+import Control.Effect.Error (throwError)
+import Control.Effect.Labelled (lift)
 import Control.Effect.Optics (assign, modifying, use, uses)
 import Control.Effect.Random (Random, uniformR)
-import Control.Effect.State (State, get)
+import Control.Effect.State (get)
 import Control.Monad (when)
 import qualified Data.IntMap as IntMap
 import Game.Buff
@@ -61,7 +59,7 @@ damagePlayer
   => Int
   -> m ()
 damagePlayer i = do
-  lift $ putStrLn $ "attack PLAYER: " ++ show i
+  lift $ putStrLn $ "🏹🧑: " ++ show i
   shield <- use @Player #shield
   if i > shield
     then do
@@ -81,7 +79,7 @@ damageEnemy
   -> Int
   -> m ()
 damageEnemy index i = do
-  lift $ putStrLn $ "attack ENEMY: " ++ show index ++ ", " ++ show i
+  lift $ putStrLn $ "🏹👺: " ++ show index ++ ", " ++ show i
   s <- use @Game $ #enemys % at index
   case s of
     Nothing -> pure ()
@@ -121,8 +119,8 @@ playerSelectBehave = do
     getInput
       ( Avi
           "SELECT BEHAVE"
-          [ (1, 1 :: Int, "attack")
-          , (2, 2, "defend")
+          [ (1, 1 :: Int, "⚔️")
+          , (2, 2, "🛡")
           , (3, 3, "player_info")
           , (4, 4, "enemys_info")
           ]

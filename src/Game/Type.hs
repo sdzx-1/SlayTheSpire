@@ -39,7 +39,7 @@ instance Show Player where
       , damage
       } =
       printf
-        "🧓  💝: %d s: %d d: %d"
+        "🧑 ❤️ %d 🛡 %d  🗡️ %d"
         health
         shield
         damage
@@ -59,7 +59,7 @@ instance Show Enemy where
       , damage
       } =
       printf
-        "🦁 h: %d s: %d d: %d "
+        "👺 ❤ %d 🛡 %d  ️🗡 %d "
         health
         shield
         damage

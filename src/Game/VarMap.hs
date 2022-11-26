@@ -20,7 +20,7 @@ import Control.Effect.State (State)
 import Data.Map (Map)
 import Data.Maybe (fromJust)
 import GHC.Generics (Generic)
-import Optics (At (at), makeFieldLabels, (%), (%?))
+import Optics (At (at), makeFieldLabels, (%))
 
 newtype VarRef = VarRef Int deriving (Show, Generic, Eq, Ord)
 
