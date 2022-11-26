@@ -48,10 +48,8 @@ runF =
     $ f
       [ PBuff
           { buffName = BuffName "Converts enemy attacks to damage 30 times"
-          , buffInit = BuffInit @'[PlayerTakesDamage] $ do
-              times <- definedVar 0
-              totalDamageInc <- definedVar 0
-              pure $
+          , buffInit = BuffInit @'[PlayerTakesDamage] @2 (0 :* 0 :* VNil) $
+              \(times :* totalDamageInc :* _) ->
                 BuffRecord
                   { actionList =
                       ( 0
@@ -63,24 +61,17 @@ runF =
                           throwError InterruptAttack
                       )
                         ::: HNil
-                  , varRefs = [times, totalDamageInc]
                   , description = Desciption $ do
                       times' <- useVar times
                       tdi' <- useVar totalDamageInc
                       pure $
-                        "now times: ["
-                          ++ show times'
-                          ++ "], "
-                          ++ "total damage inc: ["
-                          ++ show tdi'
-                          ++ "]"
+                        "now times: [" ++ show times' ++ "], " ++ "total damage inc: [" ++ show tdi' ++ "]"
                   }
           }
       , PBuff
           { buffName = BuffName "The player can revive 10 times after death"
-          , buffInit = BuffInit @'[PlayerDies] $ do
-              times <- definedVar 0
-              pure $
+          , buffInit = BuffInit @'[PlayerDies] @1 (0 :* VNil) $
+              \(times :* _) ->
                 BuffRecord
                   { actionList =
                       ( 0
@@ -90,7 +81,6 @@ runF =
                           assign @Player #health 100
                       )
                         ::: HNil
-                  , varRefs = [times]
                   , description = Desciption $ do
                       times' <- useVar times
                       pure $ "player dies times: [" ++ show times' ++ "]"
@@ -98,20 +88,14 @@ runF =
           }
       , PBuff
           { buffName = BuffName "remain attack to select new enemy killed"
-          , buffInit = BuffInit @'[EnemyDies, NewTurnStart] $ do
-              turnV <- definedVar 0
-              pure $
+          , buffInit = BuffInit @'[EnemyDies, NewTurnStart] @1 (0 :* VNil) $
+              \(turnV :* _) ->
                 BuffRecord
                   { actionList =
                       ( 0
                       , \SEnemyDies{remainAttack} -> Action $ do
                           val <- useVar turnV
-                          lift $
-                            putStrLn $
-                              "buff: remainAttack "
-                                ++ show remainAttack
-                                ++ " + trun add "
-                                ++ show val
+                          lift $ putStrLn $ "buff: remainAttack " ++ show remainAttack ++ " + trun add " ++ show val
                           randomSelectEnemyAttack (remainAttack + val)
                       )
                         ::: ( 0
@@ -121,14 +105,12 @@ runF =
                                 lift $ putStrLn $ "new turn inc damage: " ++ show val
                             )
                         ::: HNil
-                  , varRefs = [turnV]
                   , description = Desciption $ do
                       v <- useVar turnV
                       pure $ "add damage [" ++ show v ++ "]"
                   }
           }
       ]
-
 f
   :: forall sig m
    . All sig m

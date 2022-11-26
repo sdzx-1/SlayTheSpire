@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
@@ -12,6 +13,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Game.Buff where
 
@@ -29,7 +31,9 @@ import qualified Data.IntMap as IntMap
 import Data.List (sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Proxy (Proxy (..))
 import GHC.Exts (Any)
+import GHC.TypeLits (KnownNat, Nat, natVal, type (+), type (-))
 import Game.Trigger
 import Game.Type
 import Game.VarMap (VarMap, VarRef, definedVar, deleteVar, modifyVar)
@@ -90,13 +94,37 @@ instance Show Desciption where
 
 data BuffRecord xs = BuffRecord
   { actionList :: HList xs
-  , varRefs :: [VarRef]
   , description :: Desciption
   }
 
-data BuffInit = forall xs.
-  (InsertTriggerMap xs, ToIXs xs) =>
-  BuffInit {buffInit :: forall sig m. (All sig m) => m (BuffRecord xs)}
+data Vec (n :: Nat) a where
+  VNil :: Vec 0 a
+  (:*) :: a -> Vec n a -> Vec (n + 1) a
+
+infixr 5 :*
+
+vecToList :: Vec n a -> [a]
+vecToList VNil = []
+vecToList (a :* b) = a : vecToList b
+
+initVars
+  :: ( Has (State VarMap) sig m
+     , Has Fresh sig m
+     )
+  => Vec n Int
+  -> m (Vec n VarRef)
+initVars VNil = pure VNil
+initVars (a :* bs) = do
+  va <- definedVar a
+  vbs <- initVars bs
+  pure (va :* vbs)
+
+data BuffInit where
+  BuffInit
+    :: (InsertTriggerMap xs, ToIXs xs)
+    => Vec n Int
+    -> (Vec n VarRef -> BuffRecord xs)
+    -> BuffInit
 
 instance Show BuffInit where
   show _ = " BuffInit "
@@ -125,13 +153,17 @@ cleanBuff buffIndex = do
       modify @BuffMap (BuffMap . Map.delete buffIndex . buffMap)
 
 initBuff :: All sig m => BuffName -> BuffInit -> m BuffIndex
-initBuff buffName BuffInit{buffInit} = do
+initBuff buffName (BuffInit varInitValue buffInit) = do
+  varRefVec <- initVars varInitValue
+  let BuffRecord
+        { actionList
+        , description
+        } = buffInit varRefVec
   buffIndex <- BuffIndex <$> fresh
-  BuffRecord{actionList, varRefs, description} <- buffInit
   itmap buffIndex actionList
   let buffRef =
         BuffRef
-          { buffVarRef = varRefs
+          { buffVarRef = vecToList varRefVec
           , buffTriggerRef = toIxs actionList
           , buffDesciption = description
           }
