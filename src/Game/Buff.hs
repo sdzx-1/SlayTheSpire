@@ -32,7 +32,7 @@ import qualified Data.Map as Map
 import GHC.Exts (Any)
 import Game.Trigger
 import Game.Type
-import Game.VarMap (VarMap, VarRef, deleteVar)
+import Game.VarMap (VarMap, VarRef, definedVar, deleteVar, modifyVar)
 import Text.Printf (printf)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -60,14 +60,22 @@ instance (IX x, ToIXs xs) => ToIXs (x ': xs) where
   toIxs (a ::: b) = ixF (snd a) : toIxs b
 
 class InsertTriggerMap xs where
-  itmap :: Has (State TriggerMap) sig m => BuffIndex -> HList xs -> m ()
+  itmap
+    :: ( Has (State TriggerMap) sig m
+       , Has (State VarMap) sig m
+       , Has Fresh sig m
+       )
+    => BuffIndex
+    -> HList xs
+    -> m ()
 
 instance InsertTriggerMap '[] where
   itmap _ HNil = pure ()
 
 instance (IX x, InsertTriggerMap xs) => InsertTriggerMap (x ': xs) where
   itmap buffIndex ((priority, triggerFun) ::: b) = do
-    modify @TriggerMap (insertTrigger (TriggerInfo{buffIndex, priority, triggerFun}))
+    timesVarRef <- definedVar 0
+    modify @TriggerMap (insertTrigger (TriggerInfo{buffIndex, priority, triggerFun, timesVarRef}))
     itmap buffIndex b
 
 data BuffInit = forall xs.
@@ -90,8 +98,7 @@ cleanBuff buffIndex = do
     Nothing -> pure ()
     Just Buff{buffRef = BuffRef{buffVarRef, buffTriggerRef}} -> do
       mapM_ deleteVar buffVarRef
-      forM_ buffTriggerRef $ \btr -> do
-        modify @TriggerMap (deleteTrigger buffIndex btr)
+      mapM_ (deleteTrigger buffIndex) buffTriggerRef
 
 initBuff :: All sig m => BuffName -> BuffInit -> m BuffIndex
 initBuff buffName BuffInit{buffInit} = do
@@ -108,6 +115,7 @@ newtype Action = Action
       :: forall m sig
        . ( All sig m
          , Has (Reader BuffIndex) sig m
+         , Has (Reader VarRef) sig m
          )
       => m ()
   }
@@ -133,6 +141,7 @@ data TriggerInfo p = TriggerInfo
   { buffIndex :: BuffIndex
   , priority :: Int
   , triggerFun :: STrigger p -> Action
+  , timesVarRef :: VarRef
   }
 
 instance Show (TriggerInfo p) where
@@ -167,9 +176,13 @@ trigger t = do
   case lookupTrigger @p (ix t) res of
     Nothing -> pure ()
     Just ts -> forM_ ts $
-      \TriggerInfo{buffIndex, triggerFun} -> do
+      \TriggerInfo{buffIndex, triggerFun, timesVarRef} -> do
+        modifyVar timesVarRef (+ 1)
         catchError @GameError
-          (runReader buffIndex $ runAction (triggerFun t))
+          ( runReader timesVarRef
+              . runReader buffIndex
+              $ runAction (triggerFun t)
+          )
           ( \case
               BuffEarlyExist -> pure ()
               e -> throwError e
@@ -200,10 +213,20 @@ lookupTrigger
 lookupTrigger index TriggerMap{triggerMap} =
   unsafeCoerce $ IntMap.lookup index triggerMap
 
-deleteTrigger :: BuffIndex -> Int -> TriggerMap -> TriggerMap
-deleteTrigger buffIndex index TriggerMap{triggerMap} =
-  TriggerMap $ case IntMap.lookup index triggerMap of
-    Nothing -> triggerMap
-    Just v ->
-      let nv = filter (\TriggerInfo{buffIndex = p} -> p /= buffIndex) v
-       in IntMap.insert index nv triggerMap
+deleteTrigger
+  :: ( Has (State TriggerMap) sig m
+     , Has (State VarMap) sig m
+     )
+  => BuffIndex
+  -> Int
+  -> m ()
+deleteTrigger buffIndex index = do
+  TriggerMap{triggerMap = trigM} <- get @TriggerMap
+  case IntMap.lookup index trigM of
+    Nothing -> pure ()
+    Just vs -> do
+      let collect v@TriggerInfo{buffIndex = p} (xs, ys) =
+            if p == buffIndex then (v : xs, ys) else (xs, v : ys)
+          (needDelet, remain) = foldr collect ([], []) vs
+      forM_ needDelet $ \TriggerInfo{timesVarRef} -> deleteVar timesVarRef
+      modify @TriggerMap (TriggerMap . IntMap.insert index remain . triggerMap)
