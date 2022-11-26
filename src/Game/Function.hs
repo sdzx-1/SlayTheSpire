@@ -73,13 +73,10 @@ damagePlayer i = flip
     if i > shield
       then do
         health <- use @Player #health
-        let newHealth = health - (i - shield)
-        if newHealth <= 0
-          then do
-            trigger SPlayerDies
-          else do
-            assign @Player #shield 0
-            assign @Player #health newHealth
+        let newHealth = health + shield - i
+        assign @Player #shield 0
+        assign @Player #health newHealth
+        when (newHealth <= 0) $ trigger SPlayerDies
         newHealth' <- use @Player #health
         when (newHealth' <= 0) $ throwError PlayerDeath
       else assign @Player #shield (shield - i)
