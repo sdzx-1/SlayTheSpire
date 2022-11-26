@@ -59,17 +59,21 @@ damagePlayer
   => Int
   -> m ()
 damagePlayer i = do
-  lift $ putStrLn $ "🏹🧑: " ++ show i
+  h <- use @Player #health
+  lift $ putStrLn $ "🏹🧑: " ++ show i ++ ", player health: " ++ show h
   shield <- use @Player #shield
   if i > shield
     then do
       health <- use @Player #health
       let newHealth = health - (i - shield)
-      when (newHealth <= 0) $ trigger SPlayerDies
+      if newHealth <= 0
+        then do
+          trigger SPlayerDies
+        else do
+          assign @Player #shield 0
+          assign @Player #health newHealth
       newHealth' <- use @Player #health
       when (newHealth' <= 0) $ throwError PlayerDeath
-      assign @Player #shield 0
-      assign @Player #health newHealth
     else assign @Player #shield (shield - i)
 
 damageEnemy

@@ -22,7 +22,7 @@ import System.Random (mkStdGen)
 
 import Control.Carrier.Fresh.Strict (runFresh)
 import Control.Carrier.Reader (ask)
-import Control.Effect.Optics (modifying, use)
+import Control.Effect.Optics (assign, modifying, use)
 import qualified Data.IntMap as IntMap
 import Game.Buff
 import Game.Function
@@ -48,6 +48,27 @@ runF =
     . runError @GameError
     $ f
       [ PBuff
+          { buffName = BuffName "The player can revive 10 times after death"
+          , buffInit = BuffInit @'[PlayerDies] $ do
+              times <- definedVar 0
+              pure
+                ( ( 0
+                  , \SPlayerDies -> Action $ do
+                      modifyVar times (+ 1)
+                      tv <- useVar times
+                      when (tv >= 10) $ do
+                        lift $ putStrLn "------- REMOVE BUFF SELF -------"
+                        buffIndex <- ask @BuffIndex
+                        cleanBuff buffIndex
+                        throwError BuffEarlyExist
+                      lift $ putStrLn "player dies, revive, set health 100"
+                      assign @Player #health 100
+                  )
+                    ::: HNil
+                , [times]
+                )
+          }
+      , PBuff
           { buffName = BuffName "remain attack to select new enemy killed"
           , buffInit = BuffInit @'[EnemyDies, NewTurnStart] $ do
               times <- definedVar 0
