@@ -48,6 +48,28 @@ runF =
     . runError @GameError
     $ f
       [ PBuff
+          { buffName = BuffName "Converts enemy attacks to damage 30 times"
+          , buffInit = BuffInit @'[PlayerTakesDamage] $ do
+              times <- definedVar 0
+              pure
+                ( ( 0
+                  , \SPlayerTakesDamage{enemyAttack} -> Action $ do
+                      modifyVar times (+ 1)
+                      tv <- useVar times
+                      when (tv >= 30) $ do
+                        lift $ putStrLn "------- REMOVE BUFF SELF -------"
+                        buffIndex <- ask @BuffIndex
+                        cleanBuff buffIndex
+                        throwError BuffEarlyExist
+                      lift $ putStrLn "Converts enemy attacks to damage, interrupt enemy attack"
+                      modifying @_ @Player #damage (+ enemyAttack)
+                      throwError InterruptAttack
+                  )
+                    ::: HNil
+                , [times]
+                )
+          }
+      , PBuff
           { buffName = BuffName "The player can revive 10 times after death"
           , buffInit = BuffInit @'[PlayerDies] $ do
               times <- definedVar 0

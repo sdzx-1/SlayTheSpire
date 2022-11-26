@@ -18,7 +18,7 @@ data Trigger
   deriving (Eq, Show, Ord)
 
 data STrigger (p :: Trigger) where
-  SPlayerTakesDamage :: STrigger PlayerTakesDamage
+  SPlayerTakesDamage :: {enemyAttack :: Int} -> STrigger PlayerTakesDamage
   SPlayerDies :: STrigger PlayerDies
   SEnemyDies :: {remainAttack :: Int, enemyId :: Int} -> STrigger EnemyDies
   SPlayerSelectDefends :: STrigger PlayerSelectDefends

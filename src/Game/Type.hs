@@ -71,6 +71,7 @@ data GameError
   | CleanEnemys
   | VarError String
   | BuffEarlyExist
+  | InterruptAttack
   deriving (Show)
 
 type Enemys = IntMap Enemy

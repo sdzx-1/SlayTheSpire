@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -13,7 +14,7 @@
 module Game.Function where
 
 import Control.Algebra (Has)
-import Control.Effect.Error (throwError)
+import Control.Effect.Error (Error, catchError, throwError)
 import Control.Effect.Labelled (lift)
 import Control.Effect.Optics (assign, modifying, use, uses)
 import Control.Effect.Random (Random, uniformR)
@@ -58,23 +59,30 @@ damagePlayer
      )
   => Int
   -> m ()
-damagePlayer i = do
-  h <- use @Player #health
-  lift $ putStrLn $ "🏹🧑: " ++ show i ++ ", player health: " ++ show h
-  shield <- use @Player #shield
-  if i > shield
-    then do
-      health <- use @Player #health
-      let newHealth = health - (i - shield)
-      if newHealth <= 0
-        then do
-          trigger SPlayerDies
-        else do
-          assign @Player #shield 0
-          assign @Player #health newHealth
-      newHealth' <- use @Player #health
-      when (newHealth' <= 0) $ throwError PlayerDeath
-    else assign @Player #shield (shield - i)
+damagePlayer i = flip
+  (catchError @GameError)
+  ( \case
+      InterruptAttack -> pure ()
+      e -> throwError e
+  )
+  $ do
+    trigger (SPlayerTakesDamage i)
+    h <- use @Player #health
+    lift $ putStrLn $ "🏹🧑: " ++ show i ++ ", player health: " ++ show h
+    shield <- use @Player #shield
+    if i > shield
+      then do
+        health <- use @Player #health
+        let newHealth = health - (i - shield)
+        if newHealth <= 0
+          then do
+            trigger SPlayerDies
+          else do
+            assign @Player #shield 0
+            assign @Player #health newHealth
+        newHealth' <- use @Player #health
+        when (newHealth' <= 0) $ throwError PlayerDeath
+      else assign @Player #shield (shield - i)
 
 damageEnemy
   :: ( All sig m
