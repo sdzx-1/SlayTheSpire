@@ -20,7 +20,7 @@ import Control.Effect.Optics (assign, modifying, use, uses)
 import Control.Effect.Random (Random, uniformR)
 import Control.Effect.Reader (Reader, ask)
 import Control.Effect.State (State, get)
-import Control.Monad (when)
+import Control.Monad (forM, when)
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import Game.Buff
@@ -168,8 +168,18 @@ playerSelectBehave = do
         lift $ putStrLn (unlines $ map show (IntMap.toList enemys))
         playerSelectBehave
       5 -> do
-        bm <- Map.toList . buffMap <$> get @BuffMap
-        lift $ putStrLn (unlines $ map show bm)
+        bms <- Map.toList . buffMap <$> get @BuffMap
+        res' <-
+          forM bms $
+            \( buffIndex
+              , Buff
+                  { buffName
+                  , buffRef = BuffRef{buffDesciption = Desciption{description}}
+                  }
+              ) -> do
+                desc <- description
+                pure (buffIndex, buffName, desc)
+        lift $ putStrLn (unlines $ map show res')
         playerSelectBehave
       _ -> pure Nothing
 

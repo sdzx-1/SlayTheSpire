@@ -78,14 +78,25 @@ instance (IX x, InsertTriggerMap xs) => InsertTriggerMap (x ': xs) where
     modify @TriggerMap (insertTrigger (TriggerInfo{buffIndex, priority, triggerFun, timesVarRef}))
     itmap buffIndex b
 
+newtype Desciption = Desciption
+  { description
+      :: forall sig m
+       . All sig m
+      => m String
+  }
+
+instance Show Desciption where
+  show _ = " desciption "
+
 data BuffRecord xs = BuffRecord
   { actionList :: HList xs
   , varRefs :: [VarRef]
+  , description :: Desciption
   }
 
 data BuffInit = forall xs.
   (InsertTriggerMap xs, ToIXs xs) =>
-  BuffInit {buffInit :: forall sig m. (All sig m) => m (BuffRecord xs)} -- (HList xs, [VarRef])
+  BuffInit {buffInit :: forall sig m. (All sig m) => m (BuffRecord xs)}
 
 instance Show BuffInit where
   show _ = " BuffInit "
@@ -93,6 +104,7 @@ instance Show BuffInit where
 data BuffRef = BuffRef
   { buffVarRef :: [VarRef]
   , buffTriggerRef :: [Int]
+  , buffDesciption :: Desciption
   }
   deriving (Show)
 
@@ -115,12 +127,13 @@ cleanBuff buffIndex = do
 initBuff :: All sig m => BuffName -> BuffInit -> m BuffIndex
 initBuff buffName BuffInit{buffInit} = do
   buffIndex <- BuffIndex <$> fresh
-  BuffRecord{actionList, varRefs} <- buffInit
+  BuffRecord{actionList, varRefs, description} <- buffInit
   itmap buffIndex actionList
   let buffRef =
         BuffRef
           { buffVarRef = varRefs
           , buffTriggerRef = toIxs actionList
+          , buffDesciption = description
           }
       newBuffDesc = Buff{buffName, buffRef}
   modify @BuffMap (BuffMap . Map.insert buffIndex newBuffDesc . buffMap)
