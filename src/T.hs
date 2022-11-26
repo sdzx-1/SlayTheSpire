@@ -4,6 +4,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -15,15 +17,17 @@ module T where
 
 import Control.Algebra (Has)
 import Control.Effect.Error (Error)
+import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Labelled (HasLabelledLift)
+import Control.Effect.Optics (use)
 import Control.Effect.Random (Random)
+import Control.Effect.Reader (Reader)
 import Control.Effect.State (State, get, modify)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Data.Kind
 import GHC.Exts (Any)
-import GHC.TypeLits
-import Type (Action, Game, GameError, runAction)
+import Optics (At (..))
+import Type (Action, Game, GameError, VarMap, runAction)
 import Unsafe.Coerce (unsafeCoerce)
 import Prelude hiding (lookup)
 
@@ -81,21 +85,6 @@ data HList (xs :: [Trigger]) where
 
 infixr 5 :::
 
-data Buff = BuffA
-
-putFun
-  :: ( Has Random sig m
-     , Has (Error GameError) sig m
-     , HasLabelledLift IO sig m
-     , Has (State Game) sig m
-     , Has (State AMap) sig m
-     )
-  => AnyAction
-  -> m ()
-putFun (AnyAction xs) = do
-  xs' <- xs
-  modify @AMap (insertAMap xs')
-
 class ToIxs (xs :: [Trigger]) where
   toIxs :: HList xs -> [Int]
 
@@ -105,55 +94,63 @@ instance ToIxs '[] where
 instance (IX x, ToIxs xs) => ToIxs (x ': xs) where
   toIxs (a ::: b) = ixF a : toIxs b
 
-type O = '[PlayerDies, NewTurnStart]
-o :: HList O
-o = undefined ::: undefined ::: HNil
-type O' = '[PlayerDies]
-o' :: HList O'
-o' = undefined ::: HNil
+data AnyAction = forall xs.
+  InsertAMap xs =>
+  AnyAction
+  { actionList
+      :: forall sig m
+       . ( Has Random sig m
+         , Has (Error GameError) sig m
+         , HasLabelledLift IO sig m
+         , Has (State Game) sig m
+         , Has (State AMap) sig m
+         , Has (State BuffIndexMap) sig m
+         , Has (Reader BuffIndex) sig m
+         )
+      => m (HList xs)
+  }
 
-data AnyAction
-  = forall xs.
-    InsertAMap xs =>
-    AnyAction
-      ( forall sig m
-         . ( Has Random sig m
-           , Has (Error GameError) sig m
-           , HasLabelledLift IO sig m
-           , Has (State Game) sig m
-           , Has (State AMap) sig m
-           )
-        => m (HList xs)
-      )
+data BuffRef = BuffRef
+  { vars :: [Int]
+  , actions :: [Trigger]
+  }
 
-bb :: [AnyAction]
-bb = [AnyAction iif, AnyAction iif']
+data BuffName = BuffA
 
-iif'
-  :: ( Has Random sig m
-     , Has (Error GameError) sig m
-     , HasLabelledLift IO sig m
-     , Has (State Game) sig m
+data BuffStage = PreparBuff AnyAction | UseBuffInfo BuffRef
+
+type BuffIndexMap = (IntMap Buff)
+
+data Buff = Buff
+  { buffName :: BuffName
+  , buffStage :: BuffStage
+  }
+
+cleanBuff
+  :: ( Has (State BuffIndexMap) sig m
+     , Has (State VarMap) sig m
      , Has (State AMap) sig m
      )
-  => m (HList O')
-iif' = pure o'
+  => BuffIndex
+  -> m ()
+cleanBuff buffIndex = do
+  use @BuffIndexMap (at 1) >>= \case
+    Nothing -> pure ()
+    Just Buff{buffName, buffStage} -> do
+      case buffStage of
+        PreparBuff _ -> undefined
+        UseBuffInfo BuffRef{vars, actions} -> do
+          -- delete vars
+          -- delete actions
+          undefined
 
-iif
-  :: ( Has Random sig m
-     , Has (Error GameError) sig m
-     , HasLabelledLift IO sig m
-     , Has (State Game) sig m
-     , Has (State AMap) sig m
-     )
-  => m (HList O)
-iif = pure o
+newBuffIndex :: Has Fresh sig m => m BuffIndex
+newBuffIndex = BuffIndex <$> fresh
 
--- >>> ii
-ii = toIxs o
+newtype BuffIndex = BuffIndex Int
 
 data TriggerInfo = TriggerInfo
-  { index :: Int
+  { buffIndex :: BuffIndex
   , priority :: Int
   , fun :: STrigger Any -> Action
   }
@@ -185,6 +182,7 @@ trigger
      , HasLabelledLift IO sig m
      , Has (State Game) sig m
      , Has (State AMap) sig m
+     , Has (Reader BuffIndex) sig m
      , IX p
      )
   => STrigger p
@@ -194,6 +192,56 @@ trigger t = do
   case f of
     Nothing -> pure ()
     Just f' -> runAction $ f' t
+
+--------------------------------------
+
+putFun
+  :: ( Has Random sig m
+     , Has (Error GameError) sig m
+     , HasLabelledLift IO sig m
+     , Has (State Game) sig m
+     , Has (State AMap) sig m
+     , Has (State BuffIndexMap) sig m
+     , Has (Reader BuffIndex) sig m
+     )
+  => AnyAction
+  -> m ()
+putFun (AnyAction{actionList}) = do
+  xs' <- actionList
+  modify @AMap (insertAMap xs')
+
+type O = '[PlayerDies, NewTurnStart]
+o :: HList O
+o = undefined ::: undefined ::: HNil
+type O' = '[PlayerDies]
+o' :: HList O'
+o' = undefined ::: HNil
+
+bb :: [AnyAction]
+bb = [AnyAction iif, AnyAction iif']
+
+iif'
+  :: ( Has Random sig m
+     , Has (Error GameError) sig m
+     , HasLabelledLift IO sig m
+     , Has (State Game) sig m
+     , Has (State AMap) sig m
+     )
+  => m (HList O')
+iif' = pure o'
+
+iif
+  :: ( Has Random sig m
+     , Has (Error GameError) sig m
+     , HasLabelledLift IO sig m
+     , Has (State Game) sig m
+     , Has (State AMap) sig m
+     )
+  => m (HList O)
+iif = pure o
+
+-- >>> ii
+ii = toIxs o
 
 -- f1 :: SPoint PointTheEnemyDies -> Action
 -- f1 _ = undefined
