@@ -45,7 +45,7 @@ type TriggerFun x = STrigger x -> Action
 
 data HList (xs :: [Trigger]) where
   HNil :: HList '[]
-  (:::) :: IX x => (Int, TriggerFun x) -> HList xs -> HList (x ': xs)
+  (:::) :: (Int, TriggerFun x) -> HList xs -> HList (x ': xs)
 
 infixr 5 :::
 
