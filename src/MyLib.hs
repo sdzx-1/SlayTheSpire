@@ -25,6 +25,7 @@ import Control.Effect.Optics (assign, modifying, use)
 import qualified Data.IntMap as IntMap
 import Game.Buff
 import Game.Function
+import Game.Input (AvailableList (ANil, (:+)), Avi (..), ResultList (RNil, (:-)), getInput)
 import Game.Trigger
 import Game.Type
 import Game.VarMap
@@ -48,67 +49,68 @@ runF =
     $ f
       [ PBuff
           { buffName = BuffName "Converts enemy attacks to damage 30 times"
-          , buffInit = BuffInit @'[PlayerTakesDamage] @2 (0 :* 0 :* VNil) $
-              \(times :* totalDamageInc :* _) ->
-                BuffRecord
-                  { actionList =
-                      ( 0
-                      , \SPlayerTakesDamage{enemyAttack} -> Action $ withMaxTriggerTimes 30 $ do
-                          modifyVar times (+ 1)
-                          modifyVar totalDamageInc (+ enemyAttack)
-                          lift $ putStrLn "Converts enemy attacks to damage, interrupt enemy attack"
-                          modifying @_ @Player #damage (+ enemyAttack)
-                          throwError InterruptAttack
-                      )
-                        ::: HNil
-                  , description = Desciption $ do
-                      times' <- useVar times
-                      tdi' <- useVar totalDamageInc
-                      pure $
-                        "now times: [" ++ show times' ++ "], " ++ "total damage inc: [" ++ show tdi' ++ "]"
-                  }
+          , buffInit = BuffInit @'[PlayerTakesDamage] @2 (0 :* 0 :* VNil) $ \(times :* totalDamageInc :* _) ->
+              BuffRecord
+                { actionList =
+                    ( 0
+                    , \SPlayerTakesDamage{enemyAttack} -> Action $ withMaxTriggerTimes 30 $ do
+                        modifyVar times (+ 1)
+                        modifyVar totalDamageInc (+ enemyAttack)
+                        lift $ putStrLn "Converts enemy attacks to damage, interrupt enemy attack"
+                        modifying @_ @Player #damage (+ enemyAttack)
+                        throwError InterruptAttack
+                    )
+                      ::: HNil
+                , description = Desciption $ do
+                    times' <- useVar times
+                    tdi' <- useVar totalDamageInc
+                    pure $
+                      "now times: [" ++ show times' ++ "], " ++ "total damage inc: [" ++ show tdi' ++ "]"
+                }
           }
       , PBuff
           { buffName = BuffName "The player can revive 10 times after death"
-          , buffInit = BuffInit @'[PlayerDies] @1 (0 :* VNil) $
-              \(times :* _) ->
-                BuffRecord
-                  { actionList =
-                      ( 0
-                      , \SPlayerDies -> Action $ withMaxTriggerTimes 10 $ do
-                          modifyVar times (+ 1)
-                          lift $ putStrLn "player dies, revive, set health 100"
-                          assign @Player #health 100
-                      )
-                        ::: HNil
-                  , description = Desciption $ do
-                      times' <- useVar times
-                      pure $ "player dies times: [" ++ show times' ++ "]"
-                  }
+          , buffInit = BuffInit @'[PlayerDies] @1 (0 :* VNil) $ \(times :* _) ->
+              BuffRecord
+                { actionList =
+                    ( 0
+                    , \SPlayerDies -> Action $ withMaxTriggerTimes 10 $ do
+                        modifyVar times (+ 1)
+                        lift $ putStrLn "player dies, revive, select health"
+                        let healthList = Avi "SELECT HEALTH" [(a, b, show b) | a <- [1 .. 7], let b = a * 10]
+                        res' <- getInput (healthList :+ ANil)
+                        case res' of
+                          Nothing -> assign @Player #health 100
+                          Just (h :- RNil) -> assign @Player #health h
+                    )
+                      ::: HNil
+                , description = Desciption $ do
+                    times' <- useVar times
+                    pure $ "player dies times: [" ++ show times' ++ "]"
+                }
           }
       , PBuff
           { buffName = BuffName "remain attack to select new enemy killed"
-          , buffInit = BuffInit @'[EnemyDies, NewTurnStart] @1 (0 :* VNil) $
-              \(turnV :* _) ->
-                BuffRecord
-                  { actionList =
-                      ( 0
-                      , \SEnemyDies{remainAttack} -> Action $ do
-                          val <- useVar turnV
-                          lift $ putStrLn $ "buff: remainAttack " ++ show remainAttack ++ " + trun add " ++ show val
-                          randomSelectEnemyAttack (remainAttack + val)
-                      )
-                        ::: ( 0
-                            , \SNewTurnStart -> Action $ do
-                                modifyVar turnV (+ 1)
-                                val <- useVar turnV
-                                lift $ putStrLn $ "new turn inc damage: " ++ show val
-                            )
-                        ::: HNil
-                  , description = Desciption $ do
-                      v <- useVar turnV
-                      pure $ "add damage [" ++ show v ++ "]"
-                  }
+          , buffInit = BuffInit @'[EnemyDies, NewTurnStart] @1 (0 :* VNil) $ \(turnV :* _) ->
+              BuffRecord
+                { actionList =
+                    ( 0
+                    , \SEnemyDies{remainAttack} -> Action $ do
+                        val <- useVar turnV
+                        lift $ putStrLn $ "buff: remainAttack " ++ show remainAttack ++ " + trun add " ++ show val
+                        randomSelectEnemyAttack (remainAttack + val)
+                    )
+                      ::: ( 0
+                          , \SNewTurnStart -> Action $ do
+                              modifyVar turnV (+ 1)
+                              val <- useVar turnV
+                              lift $ putStrLn $ "new turn inc damage: " ++ show val
+                          )
+                      ::: HNil
+                , description = Desciption $ do
+                    v <- useVar turnV
+                    pure $ "add damage [" ++ show v ++ "]"
+                }
           }
       ]
 f
