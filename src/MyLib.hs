@@ -15,12 +15,13 @@ import Control.Carrier.Error.Either
 import Control.Carrier.Random.Gen
 import Control.Carrier.State.Strict
 import Control.Effect.Labelled
-import Control.Monad (forM_, forever, join)
+import Control.Monad (forM_, forever, join, when)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import System.Random (mkStdGen)
 
 import Control.Carrier.Fresh.Strict (runFresh)
+import Control.Carrier.Reader (ask)
 import Control.Effect.Optics (modifying, use)
 import qualified Data.IntMap as IntMap
 import Game.Buff
@@ -57,6 +58,11 @@ runF =
                       modifyVar times (+ 1)
                       val <- useVar turnV
                       tv <- useVar times
+                      when (tv > 5) $ do
+                        lift $ putStrLn "------- REMOVE BUFF SELF -------"
+                        buffIndex <- ask @BuffIndex
+                        cleanBuff buffIndex
+                        throwError BuffEarlyExist
                       lift $
                         putStrLn $
                           "buff: remainAttack "

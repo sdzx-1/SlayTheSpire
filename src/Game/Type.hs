@@ -70,6 +70,7 @@ data GameError
   = PlayerDeath
   | CleanEnemys
   | VarError String
+  | BuffEarlyExist
   deriving (Show)
 
 type Enemys = IntMap Enemy

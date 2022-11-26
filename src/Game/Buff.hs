@@ -6,6 +6,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -16,7 +17,7 @@ module Game.Buff where
 
 import Control.Algebra (Has)
 import Control.Carrier.Reader (runReader)
-import Control.Effect.Error (Error)
+import Control.Effect.Error (Error, catchError, throwError)
 import Control.Effect.Fresh (Fresh, fresh)
 import Control.Effect.Labelled (HasLabelledLift)
 import Control.Effect.Random (Random)
@@ -168,7 +169,12 @@ trigger t = do
     Nothing -> pure ()
     Just ts -> forM_ ts $
       \TriggerInfo{buffIndex, triggerFun} -> do
-        runReader buffIndex $ runAction (triggerFun t)
+        catchError @GameError
+          (runReader buffIndex $ runAction (triggerFun t))
+          ( \case
+              BuffEarlyExist -> pure ()
+              e -> throwError e
+          )
 
 insertTrigger
   :: IX p
