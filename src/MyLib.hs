@@ -92,7 +92,7 @@ runF =
                             ++ show val
                             ++ ", times: "
                             ++ show tv
-                      randomSelectEnemyAttack remainAttack
+                      randomSelectEnemyAttack (remainAttack + val)
                   )
                     ::: ( 0
                         , \SNewTurnStart -> Action $ do
