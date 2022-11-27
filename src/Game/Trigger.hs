@@ -15,6 +15,7 @@ data Trigger
   | PlayerSelectDefends
   | PlayerSelectAttacks
   | NewTurnStart
+  | TurnEnd
   deriving (Eq, Show, Ord)
 
 data STrigger (p :: Trigger) where
@@ -24,6 +25,7 @@ data STrigger (p :: Trigger) where
   SPlayerSelectDefends :: STrigger PlayerSelectDefends
   SPlayerSelectAttacks :: STrigger PlayerSelectAttacks
   SNewTurnStart :: STrigger NewTurnStart
+  STurnEnd :: STrigger TurnEnd
 
 class IX (p :: Trigger) where
   ix :: STrigger p -> Int
@@ -36,6 +38,7 @@ ixT EnemyDies = 3
 ixT PlayerSelectDefends = 4
 ixT PlayerSelectAttacks = 5
 ixT NewTurnStart = 6
+ixT TurnEnd = 7
 
 instance IX 'PlayerTakesDamage where
   ix _ = 1
@@ -55,3 +58,7 @@ instance IX 'PlayerSelectAttacks where
 instance IX 'NewTurnStart where
   ix _ = 6
   ixF _ = 6
+
+instance IX 'TurnEnd where
+  ix _ = 7
+  ixF _ = 7
