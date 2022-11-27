@@ -23,13 +23,12 @@ data H f (xs :: [Type]) where
 infixr 5 :-
 
 instance FAll Show f xs => Show (H f xs) where
-  show N = "]"
+  show N = "[]"
+  show (a :- N) = "[" ++ show a ++ "]"
   show (a :- b) = "[" ++ show a ++ "," ++ drop 1 (show b)
 
--- >>> show p
--- "[Identity 1,Identity \"nice\",Identity True,"
-p :: H I [Int, String, Bool]
-p = I 1 :- I "nice" :- I True :- N
+-- >>> show (I 1 :- I "nice" :- I True :- N)
+-- "[Identity 1,Identity \"nice\",Identity True]"
 
 type family
   FAll

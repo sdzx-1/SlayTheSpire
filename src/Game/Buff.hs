@@ -31,27 +31,36 @@ import qualified Data.IntMap as IntMap
 import Data.List (sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Proxy (Proxy (..))
 import GHC.Exts (Any)
-import GHC.TypeLits (KnownNat, Nat, natVal, type (+), type (-))
+import GHC.TypeLits (Nat, type (+))
 import Game.Trigger
 import Game.Type
 import Game.VarMap (VarMap, VarRef, definedVar, deleteVar, modifyVar)
 import Text.Printf (printf)
 import Unsafe.Coerce (unsafeCoerce)
-import Game.HList
 
 data PBuff = PBuff
   { buffName :: BuffName
-  , buffInit :: BuffInit
+  , buffDefined :: BuffDefined
   }
   deriving (Show)
 
 type TriggerFun x = STrigger x -> Action
 
+data PriorityAndTriggerFun x = PriorityAndTriggerFun
+  { priority :: Int
+  , triggerFun :: TriggerFun x
+  }
+
+instance Show (PriorityAndTriggerFun x) where
+  show PriorityAndTriggerFun{priority} =
+    "PriorityAndTriggerFun priority: "
+      ++ show priority
+      ++ ", triggerFunction"
+
 data HList (xs :: [Trigger]) where
   HNil :: HList '[]
-  (:::) :: (Int, TriggerFun x) -> HList xs -> HList (x ': xs)
+  (:::) :: PriorityAndTriggerFun x -> HList xs -> HList (x ': xs)
 
 infixr 5 :::
 
@@ -62,7 +71,7 @@ instance ToIXs '[] where
   toIxs HNil = []
 
 instance (IX x, ToIXs xs) => ToIXs (x ': xs) where
-  toIxs (a ::: b) = ixF (snd a) : toIxs b
+  toIxs (PriorityAndTriggerFun{triggerFun} ::: b) = ixF triggerFun : toIxs b
 
 class InsertTriggerMap xs where
   itmap
@@ -78,7 +87,7 @@ instance InsertTriggerMap '[] where
   itmap _ HNil = pure ()
 
 instance (IX x, InsertTriggerMap xs) => InsertTriggerMap (x ': xs) where
-  itmap buffIndex ((priority, triggerFun) ::: b) = do
+  itmap buffIndex (PriorityAndTriggerFun{priority, triggerFun} ::: b) = do
     timesVarRef <- definedVar 0
     modify @TriggerMap (insertTrigger (TriggerInfo{buffIndex, priority, triggerFun, timesVarRef}))
     itmap buffIndex b
@@ -93,8 +102,8 @@ newtype Desciption = Desciption
 instance Show Desciption where
   show _ = " desciption "
 
-data BuffRecord xs = BuffRecord
-  { actionList :: HList xs
+data BuffBehave xs = BuffBehave
+  { triggerFunList :: HList xs
   , description :: Desciption
   }
 
@@ -120,15 +129,33 @@ initVars (a :* bs) = do
   vbs <- initVars bs
   pure (va :* vbs)
 
-data BuffInit where
-  BuffInit
+data BuffDesc n xs = BuffDesc
+  { defaultVarValues :: Vec n Int
+  , triggerFunsDefined :: Vec n VarRef -> BuffBehave xs
+  }
+
+definedBuff
+  :: forall xs n
+   . ( InsertTriggerMap xs
+     , ToIXs xs
+     )
+  => BuffDesc n xs
+  -> BuffDefined
+definedBuff
+  BuffDesc
+    { defaultVarValues
+    , triggerFunsDefined
+    } = BuffDefined defaultVarValues triggerFunsDefined
+
+data BuffDefined where
+  BuffDefined
     :: (InsertTriggerMap xs, ToIXs xs)
     => Vec n Int
-    -> (Vec n VarRef -> BuffRecord xs)
-    -> BuffInit
+    -> (Vec n VarRef -> BuffBehave xs)
+    -> BuffDefined
 
-instance Show BuffInit where
-  show _ = " BuffInit "
+instance Show BuffDefined where
+  show _ = " buff defined "
 
 data BuffRef = BuffRef
   { buffVarRef :: [VarRef]
@@ -153,19 +180,19 @@ cleanBuff buffIndex = do
       mapM_ (deleteTrigger buffIndex) buffTriggerRef
       modify @BuffMap (BuffMap . Map.delete buffIndex . buffMap)
 
-initBuff :: All sig m => BuffName -> BuffInit -> m BuffIndex
-initBuff buffName (BuffInit varInitValue buffInit) = do
+initBuff :: All sig m => BuffName -> BuffDefined -> m BuffIndex
+initBuff buffName (BuffDefined varInitValue buffInit) = do
   varRefVec <- initVars varInitValue
-  let BuffRecord
-        { actionList
+  let BuffBehave
+        { triggerFunList
         , description
         } = buffInit varRefVec
   buffIndex <- BuffIndex <$> fresh
-  itmap buffIndex actionList
+  itmap buffIndex triggerFunList
   let buffRef =
         BuffRef
           { buffVarRef = vecToList varRefVec
-          , buffTriggerRef = toIxs actionList
+          , buffTriggerRef = toIxs triggerFunList
           , buffDesciption = description
           }
       newBuffDesc = Buff{buffName, buffRef}
@@ -264,7 +291,12 @@ insertTrigger
           case IntMap.lookup index triggerMap of
             Nothing -> IntMap.insert index [nt] triggerMap
             Just v ->
-              let nv = sortBy (\a b -> compare (priority a) (priority b)) $ nt : v
+              let nv =
+                    sortBy
+                      ( \TriggerInfo{priority = a}
+                         TriggerInfo{priority = b} -> compare a b
+                      )
+                      $ nt : v
                in IntMap.insert index nv triggerMap
 
 lookupTrigger
