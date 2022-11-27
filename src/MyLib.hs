@@ -49,7 +49,7 @@ runF =
     $ f
       [ PBuff
           { buffName = BuffName "Converts enemy attacks to damage 30 times"
-          , buffInit = BuffInit @'[PlayerTakesDamage] @2 (0 :* 0 :* VNil) $ \(times :* totalDamageInc :* _) ->
+          , buffInit = BuffInit @'[PlayerTakesDamage] (0 :* 0 :* VNil) $ \(times :* totalDamageInc :* _) ->
               BuffRecord
                 { actionList =
                     ( 0
@@ -57,7 +57,7 @@ runF =
                         modifyVar times (+ 1)
                         modifyVar totalDamageInc (+ enemyAttack)
                         lift $ putStrLn "Converts enemy attacks to damage, interrupt enemy attack"
-                        modifying @_ @Player #damage (+ enemyAttack)
+                        modifying @Player #damage (+ enemyAttack)
                         throwError InterruptAttack
                     )
                       ::: HNil
@@ -70,7 +70,7 @@ runF =
           }
       , PBuff
           { buffName = BuffName "The player can revive 10 times after death"
-          , buffInit = BuffInit @'[PlayerDies] @1 (0 :* VNil) $ \(times :* _) ->
+          , buffInit = BuffInit @'[PlayerDies] (0 :* VNil) $ \(times :* _) ->
               BuffRecord
                 { actionList =
                     ( 0
@@ -91,7 +91,7 @@ runF =
           }
       , PBuff
           { buffName = BuffName "remain attack to select new enemy killed"
-          , buffInit = BuffInit @'[EnemyDies, NewTurnStart] @1 (0 :* VNil) $ \(turnV :* _) ->
+          , buffInit = BuffInit @'[EnemyDies, NewTurnStart] (0 :* VNil) $ \(turnV :* _) ->
               BuffRecord
                 { actionList =
                     ( 0
@@ -123,7 +123,7 @@ f pbs = do
     lift $ putStrLn $ "init buff: " ++ show pb
     initBuff buffName buffInit
   forever $ do
-    modifying @_ @Game #round (+ 1)
+    modifying @Game #round (+ 1)
     trigger SNewTurnStart
     renderGame
     be <- playerSelectBehave

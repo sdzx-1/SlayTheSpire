@@ -66,7 +66,7 @@ modifyVar
   -> (Int -> Int)
   -> m ()
 modifyVar varRef fun = do
-  modifying @_ @VarMap (#varMap % at varRef) (Just . fun . fromJust)
+  modifying @VarMap (#varMap % at varRef) (Just . fun . fromJust)
 
 deleteVar
   :: ( Has (State VarMap) sig m

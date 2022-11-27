@@ -37,11 +37,11 @@ chooseList ls = do
   i <- uniformR (0, len - 1)
   pure $ ls !! i
 
-incPlayerShield i = modifying @_ @Player #shield (+ i)
+incPlayerShield i = modifying @Player #shield (+ i)
 
-incEnemyShield index i = modifying @_ @Game (#enemys % at index %? #shield) (+ i)
+incEnemyShield index i = modifying @Game (#enemys % at index %? #shield) (+ i)
 
-incPlayerHealth h = modifying @_ @Player #health (+ h)
+incPlayerHealth h = modifying @Player #health (+ h)
 
 randomSelectEnemyAttack i = do
   es <- uses @Game #enemys IntMap.keys
@@ -158,7 +158,7 @@ playerSelectBehave = do
         case res' of
           Nothing -> playerSelectBehave
           Just (baseS :- RNil) -> do
-            pure (Just $ modifying @_ @Player #shield (+ baseS))
+            pure (Just $ modifying @Player #shield (+ baseS))
       3 -> do
         p <- get @Player
         lift $ print p
