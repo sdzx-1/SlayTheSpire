@@ -39,6 +39,7 @@ import Game.Type
 import Game.VarMap (VarMap, VarRef, definedVar, deleteVar, modifyVar)
 import Text.Printf (printf)
 import Unsafe.Coerce (unsafeCoerce)
+import Game.HList
 
 data PBuff = PBuff
   { buffName :: BuffName

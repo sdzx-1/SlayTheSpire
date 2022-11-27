@@ -64,6 +64,7 @@ library
                     , Game.Trigger
                     , Game.Function
                     , Game.Input
+                    , Game.HList
                     , MyLib
 
     -- Modules included in this library but not exported.

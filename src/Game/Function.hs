@@ -24,7 +24,8 @@ import Control.Monad (forM, when)
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import Game.Buff
-import Game.Input (AvailableList (ANil, (:+)), Avi (Avi), ResultList (RNil, (:-)), getInput)
+import Game.HList
+import Game.Input
 import Game.Trigger
 import Game.Type
 import Game.VarMap (VarMap (VarMap), VarRef (..), useVar)
@@ -51,10 +52,10 @@ randomSelectEnemyAttack i = do
 selectEnemyAttack i = do
   enemys <- IntMap.toList <$> use @Game #enemys
   let ts = Avi "SELECT Enemy" $ zipWith (curry (\(a, (b', c)) -> (a, b', show c))) [1 ..] enemys
-  res' <- getInput (ts :+ ANil)
+  res' <- getInput (ts :- N)
   case res' of
     Nothing -> pure ()
-    Just (target :- RNil) ->
+    Just (I target :- _) ->
       damageEnemy target i
 
 damagePlayer
@@ -137,27 +138,27 @@ playerSelectBehave = do
           , (4, 4, "enemys_info")
           , (5, 5, "list buffs")
           ]
-          :+ ANil
+          :- N
       )
   case res of
     Nothing -> pure Nothing
-    Just (r :- RNil) -> case r of
+    Just (I r :- _) -> case r of
       1 -> do
         enemys <- IntMap.toList <$> use @Game #enemys
         let ts = Avi "SELECT Enemy" $ zipWith (curry (\(a, (b, c)) -> (a, b, show c))) [1 ..] enemys
             baseDamage = Avi "SELECT Basedamage" [(a, b :: Int, show b) | a <- [1 .. 9], let b = a * 10]
-        res' <- getInput (ts :+ baseDamage :+ ANil)
+        res' <- getInput (ts :- baseDamage :- N)
         case res' of
           Nothing -> playerSelectBehave
-          Just (target :- baseD :- RNil) -> do
+          Just (I target :- I baseD :- _) -> do
             damage <- use @Player #damage
             pure (Just $ damageEnemy target (baseD + damage))
       2 -> do
         let baseShield = Avi "SELECT Shield" [(a, b :: Int, show b) | a <- [1 .. 9], let b = a * 10]
-        res' <- getInput (baseShield :+ ANil)
+        res' <- getInput (baseShield :- N)
         case res' of
           Nothing -> playerSelectBehave
-          Just (baseS :- RNil) -> do
+          Just (I baseS :- _) -> do
             pure (Just $ modifying @Player #shield (+ baseS))
       3 -> do
         p <- get @Player

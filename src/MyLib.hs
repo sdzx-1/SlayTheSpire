@@ -25,7 +25,8 @@ import Control.Effect.Optics (assign, modifying, use)
 import qualified Data.IntMap as IntMap
 import Game.Buff
 import Game.Function
-import Game.Input (AvailableList (ANil, (:+)), Avi (..), ResultList (RNil, (:-)), getInput)
+import Game.HList
+import Game.Input
 import Game.Trigger
 import Game.Type
 import Game.VarMap
@@ -78,10 +79,10 @@ runF =
                         modifyVar times (+ 1)
                         lift $ putStrLn "player dies, revive, select health"
                         let healthList = Avi "SELECT HEALTH" [(a, b, show b) | a <- [1 .. 7], let b = a * 10]
-                        res' <- getInput (healthList :+ ANil)
+                        res' <- getInput (healthList :- N)
                         case res' of
                           Nothing -> assign @Player #health 100
-                          Just (h :- RNil) -> assign @Player #health h
+                          Just (I h :- N) -> assign @Player #health h
                     )
                       ::: HNil
                 , description = Desciption $ do

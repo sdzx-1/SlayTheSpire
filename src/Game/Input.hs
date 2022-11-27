@@ -22,6 +22,7 @@ import Control.Monad (forever)
 import Data.Dynamic
 import Data.Kind
 import qualified Data.Map as Map
+import Game.HList
 import Game.Type (Index)
 import Text.Read (readMaybe)
 
@@ -31,31 +32,9 @@ data Avi t = Avi
   }
   deriving (Show)
 
-data AvailableList (xs :: [Type]) where
-  ANil :: AvailableList '[]
-  (:+)
-    :: (Show t, Typeable t)
-    => Avi t
-    -> AvailableList xs
-    -> AvailableList (t ': xs)
+type AvailableList xs = H Avi xs
 
-infixr 5 :+
-
-instance Show (AvailableList xs) where
-  show ANil = ""
-  show (a :+ ANil) = show a
-  show (a :+ ls) = show a ++ ", " ++ show ls
-
-data ResultList (xs :: [Type]) where
-  RNil :: ResultList '[]
-  (:-) :: (Show t, Typeable t) => t -> ResultList xs -> ResultList (t ': xs)
-
-infixr 5 :-
-
-instance Show (ResultList xs) where
-  show RNil = ""
-  show (a :- RNil) = show a
-  show (a :- ls) = show a ++ ", " ++ show ls
+type ResultList xs = H I xs
 
 returnLevel
   :: forall sig m
@@ -89,12 +68,13 @@ go
    . ( Has (Error Control) sig m
      , Has (State [Dynamic]) sig m
      , HasLabelledLift IO sig m
+     , HAll Typeable xs
      )
   => AvailableList xs
   -> Int
   -> m ()
-go ANil _ = throwError Finish
-go ((Avi title' ts) :+ tss) levelIndex =
+go N _ = throwError Finish
+go ((Avi title' ts) :- tss) levelIndex =
   forever . returnLevel levelIndex $ do
     let st = "➡️ " ++ title'
     lift $ putStrLn $ unlines $ st : map (\(a, _, c) -> show a ++ "-" ++ c) ts
@@ -112,20 +92,21 @@ go ((Avi title' ts) :+ tss) levelIndex =
 class TRS xs where
   trs :: [Dynamic] -> Maybe (ResultList xs)
 
-instance {-# OVERLAPPABLE #-} TRS '[] where
-  trs [] = Just RNil
+instance TRS '[] where
+  trs [] = Just N
   trs _ = Nothing
 
-instance {-# OVERLAPPABLE #-} (TRS xs, Typeable x, Show x) => TRS (x : xs) where
+instance (TRS xs, Typeable x, Show x) => TRS (x : xs) where
   trs [] = Nothing
   trs (x : xs) = do
     x' <- fromDynamic x
     xs' <- trs xs
-    pure $ x' :- xs'
+    pure $ I x' :- xs'
 
 getInput
   :: forall xs sig m
    . ( HasLabelledLift IO sig m
+     , HAll Typeable xs
      , TRS xs
      )
   => AvailableList xs
@@ -144,10 +125,10 @@ getInput avl = do
 te :: AvailableList '[Int, Bool, Bool, Int]
 te =
   Avi "nice" [(1, 1, "1"), (2, 2, "2"), (3, 3, "3")]
-    :+ Avi "hello" [(1, True, "True"), (2, False, "False")]
-    :+ Avi "hello" [(1, True, "True"), (2, False, "False")]
-    :+ Avi "hello" [(1, 1, "1"), (2, 2, "2"), (3, 3, "3")]
-    :+ ANil
+    :- Avi "hello" [(1, True, "True"), (2, False, "False")]
+    :- Avi "hello" [(1, True, "True"), (2, False, "False")]
+    :- Avi "hello" [(1, 1, "1"), (2, 2, "2"), (3, 3, "3")]
+    :- N
 
 tf =
   runLabelledLift $ getInput te
