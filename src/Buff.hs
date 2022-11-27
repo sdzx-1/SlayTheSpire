@@ -4,7 +4,10 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
+
+{-# HLINT ignore "Use camelCase" #-}
 
 module Buff where
 
@@ -109,6 +112,34 @@ moreDamage =
                   , description = Desciption $ do
                       v <- useVar turnV
                       pure $ "add damage [" ++ show v ++ "]"
+                  }
+            }
+    }
+
+temporary_increase_shield :: Int -> PBuff
+temporary_increase_shield i =
+  PBuff
+    { buffName = BuffName "Increased shield temporarily, and restored to original shield at end of turn"
+    , buffDefined =
+        definedBuff @'[NewTurnStart, TurnEnd]
+          BuffDesc
+            { defaultVarValues = VNil
+            , triggerFunsDefined = \VNil ->
+                BuffBehave
+                  { triggerFunList =
+                      PriorityAndTriggerFun
+                        { priority = 0
+                        , triggerFun = \SNewTurnStart{} -> Action $ do
+                            modifying @Player #shield (+ i)
+                        }
+                        ::: PriorityAndTriggerFun
+                          { priority = 0
+                          , triggerFun = \STurnEnd -> Action $ do
+                              modifying @Player #shield (\x -> max 0 (x - i))
+                          }
+                        ::: HNil
+                  , description = Desciption $ do
+                      pure $ "add shield [" ++ show i ++ "]"
                   }
             }
     }

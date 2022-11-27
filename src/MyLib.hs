@@ -49,7 +49,7 @@ runF = do
       . runFresh 0
       . runRandom (mkStdGen 10)
       . runError @GameError
-      $ f [absorbDamage, resurrectThePlayer, moreDamage]
+      $ f [absorbDamage, resurrectThePlayer, moreDamage, temporary_increase_shield 100]
   print res
 f
   :: forall sig m
@@ -71,6 +71,7 @@ f pbs = do
     enemys <- use @Game #enemys
     forM_ (IntMap.keys enemys) $ \index -> do
       join $ enemyBehavior index
+    trigger STurnEnd
 
 enemyBehavior
   :: All sig m
