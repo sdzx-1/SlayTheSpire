@@ -65,6 +65,8 @@ library
                     , Game.Function
                     , Game.Input
                     , Game.HList
+                    , Graphics.Window
+                    , Data.MutableVector
                     , Buff
                     , MyLib
 
@@ -83,6 +85,7 @@ library
                     , vector
                     , containers
                     , random
+                    , sdl2
 
     -- Directories containing source files.
     hs-source-dirs:   src
