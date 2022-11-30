@@ -1,11 +1,15 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Data.MutableVector where
 
-import Control.Effect.Labelled (HasLabelledLift, lift, runLabelledLift)
+import Control.Carrier.Reader (Reader, runReader)
+import Control.Effect.Labelled (HasLabelled, HasLabelledLift, lift, runLabelled, runLabelledLift)
+import qualified Control.Effect.Reader.Labelled as L
 import Control.Monad.ST (ST, runST)
 import Data.Vector.Generic.Mutable (PrimMonad (PrimState))
 import qualified Data.Vector.Mutable as M
@@ -106,17 +110,29 @@ instance MutableVector IO where
   {-# INLINE exchange #-}
   exchange (MVector n) a b = lift $ M.exchange n a b
 
--- Variable not in scope: runF
-{--
-runF = runST $ runLabelledLift f
+-- >>> runF
+-- "hello wellcom"
+runF = runST $ do
+  mv <- M.new 10
+  runLabelledLift $
+    runReader (S (MVector mv) 1) $
+      runLabelled @S f
+
+data S n = S
+  { smv :: MVector n String
+  , si :: Int
+  }
+
 f
   :: ( HasLabelledLift n sig m
+     , HasLabelled S (Reader (S n)) sig m
      , MutableVector n
      )
-  => m Int
+  => m String
 f = do
-  mv <- replicate 10 1
-  write mv 1 (10 :: Int)
-  write mv 2 (10 :: Int)
-  exchange mv 3 10
---}
+  S{smv} <- L.ask @S
+  write smv 1 "hello"
+  write smv 2 " wellcom"
+  h <- read smv 1
+  w <- read smv 2
+  pure (h ++ w)

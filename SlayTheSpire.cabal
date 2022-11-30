@@ -35,7 +35,7 @@ license:            MIT
 license-file:       LICENSE
 
 -- The package author(s).
-author:             EMQ-YangM
+author:             sdzx-1
 
 -- An email address to which users can send suggestions, bug reports, and patches.
 maintainer:         yangm@emqx.io
@@ -65,7 +65,8 @@ library
                     , Game.Function
                     , Game.Input
                     , Game.HList
-                    , Graphics.Window
+                    , Graphics.Type
+                    , Graphics.T
                     , Data.MutableVector
                     , Buff
                     , MyLib
@@ -86,6 +87,11 @@ library
                     , containers
                     , random
                     , sdl2
+                    , sdl2-gfx
+                    , sdl2-ttf
+                    , deque
+                    , StateVar
+                    , text
 
     -- Directories containing source files.
     hs-source-dirs:   src

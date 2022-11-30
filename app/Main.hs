@@ -2,8 +2,10 @@ module Main where
 
 import Control.Monad (void)
 import qualified MyLib as M
+import qualified Graphics.T as T
 
 main :: IO ()
 main = do
   print "nice"
-  void M.runF
+  T.main
+  -- void M.runF
