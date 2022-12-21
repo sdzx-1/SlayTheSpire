@@ -32,7 +32,7 @@ import Data.List (sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import GHC.Exts (Any)
-import GHC.TypeLits (Nat, type (+))
+import GHC.TypeLits (KnownNat, Nat, type (+))
 import Game.Trigger
 import Game.Type
 import Game.VarMap (VarMap, VarRef, definedVar, deleteVar, modifyVar)
@@ -70,7 +70,7 @@ class ToIXs (xs :: [Trigger]) where
 instance ToIXs '[] where
   toIxs HNil = []
 
-instance (IX x, ToIXs xs) => ToIXs (x ': xs) where
+instance ((KnownNat (ToIndex x)), ToIXs xs) => ToIXs (x ': xs) where
   toIxs (PriorityAndTriggerFun{triggerFun} ::: b) = ixF triggerFun : toIxs b
 
 class InsertTriggerMap xs where
@@ -86,7 +86,7 @@ class InsertTriggerMap xs where
 instance InsertTriggerMap '[] where
   itmap _ HNil = pure ()
 
-instance (IX x, InsertTriggerMap xs) => InsertTriggerMap (x ': xs) where
+instance ((KnownNat (ToIndex x)), InsertTriggerMap xs) => InsertTriggerMap (x ': xs) where
   itmap buffIndex (PriorityAndTriggerFun{priority, triggerFun} ::: b) = do
     timesVarRef <- definedVar 0
     modify @TriggerMap (insertTrigger (TriggerInfo{buffIndex, priority, triggerFun, timesVarRef}))
@@ -257,7 +257,7 @@ type All sig m =
 
 trigger
   :: forall p sig m
-   . (All sig m, IX p)
+   . (All sig m, (KnownNat (ToIndex p)))
   => STrigger p
   -> m ()
 trigger t = do
@@ -278,7 +278,7 @@ trigger t = do
           )
 
 insertTrigger
-  :: IX p
+  :: (KnownNat (ToIndex p))
   => TriggerInfo p
   -> TriggerMap
   -> TriggerMap
@@ -300,8 +300,7 @@ insertTrigger
                in IntMap.insert index nv triggerMap
 
 lookupTrigger
-  :: IX p
-  => Int
+  :: Int
   -> TriggerMap
   -> Maybe [TriggerInfo p]
 lookupTrigger index TriggerMap{triggerMap} =
